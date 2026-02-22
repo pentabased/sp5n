@@ -3,7 +3,7 @@ hexes: curses tui for sp5n
 
 plays both wheel (keyboard input) and display (panel rendering) roles
 
-input is handled by pynput in a listener thread; curses is used only for
+input is handled by evdev in a reader thread; curses is used only for
 terminal display. a thread-safe queue bridges the two.
 
 layout:
@@ -24,6 +24,10 @@ exit with ctrl-c
 import curses
 import queue
 import threading
+from typing import Final
+
+import evdev
+import evdev.ecodes as ec
 
 from sp5n.bend import Bend
 from sp5n.tape import PocketLoom
@@ -32,7 +36,6 @@ from sp5n.wheel import (
     Key,
     SpinError,
     chord_key_map,
-    glyph_key_map,
     spin,
 )
 
@@ -43,48 +46,83 @@ MIN_HEIGHT = 4
 # height of the debug strip at the bottom
 DEBUG_HEIGHT = 1
 
-# --- pynput-to-sp5n key mapping ---
+# --- evdev-to-sp5n key mapping ---
 
-# built lazily on first call to _pynput_to_sp5n()
-_special_map: dict[object, Key] = {}
-_char_map: dict[str, Key] = {}
-_maps_initialized = False
+_EVDEV_KEY_MAP: Final[dict[int, Key]] = {
+    ec.KEY_Q: "qQ",
+    ec.KEY_W: "wW",
+    ec.KEY_E: "eE",
+    ec.KEY_R: "rR",
+    ec.KEY_T: "tT",
+    ec.KEY_Y: "yY",
+    ec.KEY_U: "uU",
+    ec.KEY_I: "iI",
+    ec.KEY_O: "oO",
+    ec.KEY_P: "pP",
+    ec.KEY_LEFTBRACE: "[{",
+    ec.KEY_A: "aA",
+    ec.KEY_S: "sS",
+    ec.KEY_D: "dD",
+    ec.KEY_F: "fF",
+    ec.KEY_G: "gG",
+    ec.KEY_H: "hH",
+    ec.KEY_J: "jJ",
+    ec.KEY_K: "kK",
+    ec.KEY_L: "lL",
+    ec.KEY_SEMICOLON: ";:",
+    ec.KEY_APOSTROPHE: "'\"",
+    ec.KEY_Z: "zZ",
+    ec.KEY_X: "xX",
+    ec.KEY_C: "cC",
+    ec.KEY_V: "vV",
+    ec.KEY_B: "bB",
+    ec.KEY_N: "nN",
+    ec.KEY_M: "mM",
+    ec.KEY_COMMA: ",<",
+    ec.KEY_DOT: ".>",
+    ec.KEY_SLASH: "/?",
+    ec.KEY_ENTER: "enter",
+    ec.KEY_SPACE: "space",
+    ec.KEY_LEFTSHIFT: "left-shift",
+    ec.KEY_RIGHTSHIFT: "right-shift",
+}
 
 
-def _ensure_maps() -> None:
-    """build the pynput-to-sp5n lookup tables on first use"""
-    global _maps_initialized
-    if _maps_initialized:
-        return
+def _find_keyboard() -> evdev.InputDevice:
+    """find the first input device with a full alpha key range
 
-    from pynput.keyboard import Key as PynputKey
-
-    _special_map[PynputKey.enter] = "enter"
-    _special_map[PynputKey.space] = "space"
-    _special_map[PynputKey.shift] = "left-shift"
-    _special_map[PynputKey.shift_l] = "left-shift"
-    _special_map[PynputKey.shift_r] = "right-shift"
-
-    for sp5n_key in glyph_key_map:
-        for ch in sp5n_key:
-            _char_map[ch] = sp5n_key
-
-    _maps_initialized = True
-
-
-def _pynput_to_sp5n(key: object) -> Key | None:
-    """map a pynput key to an sp5n Key literal, or None if unmapped"""
-    from pynput.keyboard import Key as PynputKey, KeyCode
-
-    _ensure_maps()
-
-    if isinstance(key, PynputKey):
-        return _special_map.get(key)
-
-    if isinstance(key, KeyCode) and key.char is not None:
-        return _char_map.get(key.char)
-
-    return None
+    looks for a device that reports KEY_Q through KEY_P (top row).
+    raises RuntimeError if no keyboard is found.
+    """
+    alpha_top = {
+        ec.KEY_Q,
+        ec.KEY_W,
+        ec.KEY_E,
+        ec.KEY_R,
+        ec.KEY_T,
+        ec.KEY_Y,
+        ec.KEY_U,
+        ec.KEY_I,
+        ec.KEY_O,
+        ec.KEY_P,
+    }
+    for path in evdev.list_devices():
+        dev = evdev.InputDevice(path)
+        caps = dev.capabilities()
+        keys = caps.get(ec.EV_KEY, [])
+        # a real keyboard has alpha keys and LED indicators (caps/num
+        # lock) but no relative axes (mice report alpha keys too for
+        # programmable buttons)
+        if (
+            alpha_top.issubset(keys)
+            and ec.EV_LED in caps
+            and ec.EV_REL not in caps
+        ):
+            return dev
+    raise RuntimeError(
+        "no keyboard found - check /dev/input permissions "
+        "and input group membership"
+    )
 
 
 def _current_chord(pressed: set[Key]) -> str:
@@ -95,65 +133,67 @@ def _current_chord(pressed: set[Key]) -> str:
     return "8"  # bloom (no chord)
 
 
-class KeyStateTracker:
-    """tracks key press/release state and emits bends via a queue
+def _evdev_reader(
+    device: evdev.InputDevice,
+    bend_queue: queue.Queue[tuple[str, object]],
+) -> None:
+    """read evdev events in a blocking loop and put them on the queue
 
-    runs in the pynput listener thread. keeps a set of currently-pressed
-    sp5n keys, filters OS key repeat, and calls spin() on each release.
+    - runs in a daemon thread
     """
+    pressed: set[Key] = set()
+    ctrl_held = False
 
-    def __init__(self, bend_queue: queue.Queue[tuple[str, object]]) -> None:
-        self._pressed: set[Key] = set()
-        self._queue = bend_queue
-        self._lock = threading.Lock()
+    for event in device.read_loop():
+        if event.type != ec.EV_KEY:
+            continue
 
-    def on_press(self, key: object) -> None:
-        from pynput.keyboard import KeyCode
+        # value: 0=release, 1=press, 2=repeat (ignored)
+        if event.value == 2:
+            continue
+
+        # track ctrl for ctrl-c detection
+        if event.code == ec.KEY_LEFTCTRL:
+            ctrl_held = event.value == 1
+            continue
 
         # ctrl-c detection
-        if isinstance(key, KeyCode) and key.char == "\x03":
-            self._queue.put(("quit", None))
+        if event.code == ec.KEY_C and ctrl_held and event.value == 1:
+            bend_queue.put(("quit", None))
             return
 
-        sp5n_key = _pynput_to_sp5n(key)
+        sp5n_key = _EVDEV_KEY_MAP.get(event.code)
         if sp5n_key is None:
-            return
+            continue
 
-        with self._lock:
-            if sp5n_key in self._pressed:
-                return  # filter OS key repeat
-            self._pressed.add(sp5n_key)
-            indicator = _current_chord(self._pressed)
+        if event.value == 1:  # press
+            if sp5n_key in pressed:
+                continue  # filter repeat (shouldn't happen with value==2 filtered)
+            pressed.add(sp5n_key)
+            indicator = _current_chord(pressed)
+            bend_queue.put(("chord", indicator))
 
-        self._queue.put(("chord", indicator))
-
-    def on_release(self, key: object) -> None:
-        sp5n_key = _pynput_to_sp5n(key)
-        if sp5n_key is None:
-            return
-
-        with self._lock:
-            self._pressed.discard(sp5n_key)
+        elif event.value == 0:  # release
+            pressed.discard(sp5n_key)
 
             # build inputs: held keys as HELD, released key as RELEASED
             inputs: dict[Key, EventKind] = {}
-            for held_key in self._pressed:
+            for held_key in pressed:
                 inputs[held_key] = EventKind.HELD
             inputs[sp5n_key] = EventKind.RELEASED
 
-            indicator = _current_chord(self._pressed)
+            indicator = _current_chord(pressed)
 
-        # call spin outside the lock (pure function on the snapshot)
-        try:
-            bend = spin(inputs)
-        except SpinError:
-            self._queue.put(("error", None))
-            self._queue.put(("chord", indicator))
-            return
+            try:
+                bend = spin(inputs)
+            except SpinError:
+                bend_queue.put(("error", None))
+                bend_queue.put(("chord", indicator))
+                continue
 
-        if bend is not None:
-            self._queue.put(("bend", bend))
-        self._queue.put(("chord", indicator))
+            if bend is not None:
+                bend_queue.put(("bend", bend))
+            bend_queue.put(("chord", indicator))
 
 
 def _draw_debug(
@@ -192,8 +232,6 @@ def _draw_verse(
 
 def run(stdscr: "curses.window") -> None:
     """main loop - called by curses.wrapper"""
-    from pynput.keyboard import Listener
-
     curses.curs_set(0)
     stdscr.timeout(50)  # 50ms poll for queue + resize
 
@@ -224,13 +262,15 @@ def run(stdscr: "curses.window") -> None:
     _draw_debug(debug_win, chord_indicator, glyph_history, width)
     curses.doupdate()
 
-    # start pynput listener
+    # find keyboard and start evdev reader thread
+    device = _find_keyboard()
     bend_queue: queue.Queue[tuple[str, object]] = queue.Queue()
-    tracker = KeyStateTracker(bend_queue)
-    listener = Listener(
-        on_press=tracker.on_press, on_release=tracker.on_release
+    reader = threading.Thread(
+        target=_evdev_reader,
+        args=(device, bend_queue),
+        daemon=True,
     )
-    listener.start()
+    reader.start()
 
     try:
         while True:
@@ -300,8 +340,6 @@ def run(stdscr: "curses.window") -> None:
 
     except KeyboardInterrupt:
         pass
-    finally:
-        listener.stop()
 
 
 def main() -> None:

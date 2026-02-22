@@ -1,5 +1,9 @@
 # replace curses keyboard input with pynput
 
+**superseded by evdev-input.md** - pynput's xorg backend is silently
+broken under Wayland (receives zero key events). replaced with evdev
+which reads directly from /dev/input.
+
 ## context
 
 the curses `getch()` model only gives us the final character after modifier
