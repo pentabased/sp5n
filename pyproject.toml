@@ -19,6 +19,9 @@ build-backend = "setuptools.build_meta"
 [tool.setuptools]
 packages = ["sp5n"]
 
+[tool.ty.environment]
+python = ".venv"
+
 [tool.ty.rules]
 unused-ignore-comment = "warn"
 possibly-missing-import = "error"
