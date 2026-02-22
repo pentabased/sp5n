@@ -3,6 +3,9 @@ hexes: curses tui for sp5n
 
 plays both wheel (keyboard input) and display (panel rendering) roles
 
+input is handled by pynput in a listener thread; curses is used only for
+terminal display. a thread-safe queue bridges the two.
+
 layout:
   top portion  - verse panel (rendered output from PocketLoom)
   bottom strip - debug bar: chord indicator + scrolling glyph history
@@ -19,7 +22,8 @@ exit with ctrl-c
 """
 
 import curses
-import curses.ascii
+import queue
+import threading
 
 from sp5n.bend import Bend
 from sp5n.tape import PocketLoom
@@ -27,6 +31,7 @@ from sp5n.wheel import (
     EventKind,
     Key,
     SpinError,
+    chord_key_map,
     glyph_key_map,
     spin,
 )
@@ -38,53 +43,117 @@ MIN_HEIGHT = 4
 # height of the debug strip at the bottom
 DEBUG_HEIGHT = 1
 
+# --- pynput-to-sp5n key mapping ---
 
-def _curses_key_to_sp5n(ch: int) -> tuple[Key, Key | None] | None:
-    """
-    map a curses character code to an (optional chord key, glyph key) pair
+# built lazily on first call to _pynput_to_sp5n()
+_special_map: dict[object, Key] = {}
+_char_map: dict[str, Key] = {}
+_maps_initialized = False
 
-    returns None if the character is not a recognized sp5n key
 
-    curses gives us the final character so we infer chord state from it:
-    - enter  → cant chord, null glyph
-    - space  → loop chord, null glyph
-    - shift is detected from uppercase / shifted punctuation in the glyph map
-    """
-    # enter → cant chord with null glyph
-    if ch in (curses.KEY_ENTER, ord("\n"), ord("\r")):
-        return ("enter", "[{")
+def _ensure_maps() -> None:
+    """build the pynput-to-sp5n lookup tables on first use"""
+    global _maps_initialized
+    if _maps_initialized:
+        return
 
-    # space → loop chord with null glyph
-    if ch == ord(" "):
-        return ("space", "[{")
+    from pynput.keyboard import Key as PynputKey
 
-    # ctrl-c → signal exit (handled by caller)
-    if ch == curses.ascii.ETX:
-        return None
+    _special_map[PynputKey.enter] = "enter"
+    _special_map[PynputKey.space] = "space"
+    _special_map[PynputKey.shift] = "left-shift"
+    _special_map[PynputKey.shift_l] = "left-shift"
+    _special_map[PynputKey.shift_r] = "right-shift"
 
-    # try to match the character against all glyph keys
-    char = chr(ch) if 0 <= ch <= 127 else None
-    if char is None:
-        return None
+    for sp5n_key in glyph_key_map:
+        for ch in sp5n_key:
+            _char_map[ch] = sp5n_key
 
-    for key, petal in glyph_key_map.items():
-        if char in key:
-            return (None, key)  # type: ignore[return-value]
+    _maps_initialized = True
+
+
+def _pynput_to_sp5n(key: object) -> Key | None:
+    """map a pynput key to an sp5n Key literal, or None if unmapped"""
+    from pynput.keyboard import Key as PynputKey, KeyCode
+
+    _ensure_maps()
+
+    if isinstance(key, PynputKey):
+        return _special_map.get(key)
+
+    if isinstance(key, KeyCode) and key.char is not None:
+        return _char_map.get(key.char)
 
     return None
 
 
-def _infer_chord_indicator(ch: int) -> str:
+def _current_chord(pressed: set[Key]) -> str:
+    """return the chord indicator glyph for the currently held keys"""
+    for chord_key, bend_kind in chord_key_map.items():
+        if chord_key in pressed:
+            return bend_kind.value
+    return "8"  # bloom (no chord)
+
+
+class KeyStateTracker:
+    """tracks key press/release state and emits bends via a queue
+
+    runs in the pynput listener thread. keeps a set of currently-pressed
+    sp5n keys, filters OS key repeat, and calls spin() on each release.
     """
-    return the chord indicator glyph for the current character
-    used to update the static chord display before a bend is emitted
-    """
-    if ch in (curses.KEY_ENTER, ord("\n"), ord("\r")):
-        return "k"
-    if ch == ord(" "):
-        return "7"
-    # check if it's an uppercase / shifted glyph key - no chord in sp5n
-    return "8"
+
+    def __init__(self, bend_queue: queue.Queue[tuple[str, object]]) -> None:
+        self._pressed: set[Key] = set()
+        self._queue = bend_queue
+        self._lock = threading.Lock()
+
+    def on_press(self, key: object) -> None:
+        from pynput.keyboard import KeyCode
+
+        # ctrl-c detection
+        if isinstance(key, KeyCode) and key.char == "\x03":
+            self._queue.put(("quit", None))
+            return
+
+        sp5n_key = _pynput_to_sp5n(key)
+        if sp5n_key is None:
+            return
+
+        with self._lock:
+            if sp5n_key in self._pressed:
+                return  # filter OS key repeat
+            self._pressed.add(sp5n_key)
+            indicator = _current_chord(self._pressed)
+
+        self._queue.put(("chord", indicator))
+
+    def on_release(self, key: object) -> None:
+        sp5n_key = _pynput_to_sp5n(key)
+        if sp5n_key is None:
+            return
+
+        with self._lock:
+            self._pressed.discard(sp5n_key)
+
+            # build inputs: held keys as HELD, released key as RELEASED
+            inputs: dict[Key, EventKind] = {}
+            for held_key in self._pressed:
+                inputs[held_key] = EventKind.HELD
+            inputs[sp5n_key] = EventKind.RELEASED
+
+            indicator = _current_chord(self._pressed)
+
+        # call spin outside the lock (pure function on the snapshot)
+        try:
+            bend = spin(inputs)
+        except SpinError:
+            self._queue.put(("error", None))
+            self._queue.put(("chord", indicator))
+            return
+
+        if bend is not None:
+            self._queue.put(("bend", bend))
+        self._queue.put(("chord", indicator))
 
 
 def _draw_debug(
@@ -106,7 +175,10 @@ def _draw_debug(
 
 
 def _draw_verse(
-    win: "curses.window", lines: tuple[str, ...], height: int, width: int
+    win: "curses.window",
+    lines: tuple[str, ...],
+    height: int,
+    width: int,
 ) -> None:
     """draw the verse panel"""
     win.erase()
@@ -120,8 +192,10 @@ def _draw_verse(
 
 def run(stdscr: "curses.window") -> None:
     """main loop - called by curses.wrapper"""
+    from pynput.keyboard import Listener
+
     curses.curs_set(0)
-    stdscr.nodelay(False)
+    stdscr.timeout(50)  # 50ms poll for queue + resize
 
     height, width = stdscr.getmaxyx()
 
@@ -150,69 +224,84 @@ def run(stdscr: "curses.window") -> None:
     _draw_debug(debug_win, chord_indicator, glyph_history, width)
     curses.doupdate()
 
-    while True:
-        ch = stdscr.getch()
+    # start pynput listener
+    bend_queue: queue.Queue[tuple[str, object]] = queue.Queue()
+    tracker = KeyStateTracker(bend_queue)
+    listener = Listener(
+        on_press=tracker.on_press, on_release=tracker.on_release
+    )
+    listener.start()
 
-        # exit on ctrl-c
-        if ch == curses.ascii.ETX:
-            break
+    try:
+        while True:
+            # poll curses for terminal resize only
+            ch = stdscr.getch()
+            if ch == curses.KEY_RESIZE:
+                height, width = stdscr.getmaxyx()
+                verse_height = height - DEBUG_HEIGHT
+                loom.panel_width = width
+                loom.panel_height = verse_height
+                verse_win.resize(verse_height, width)
+                debug_win.mvwin(verse_height, 0)
+                debug_win.resize(DEBUG_HEIGHT, width)
+                panel = loom.render()
+                _draw_verse(verse_win, panel.lines, verse_height, width)
+                _draw_debug(
+                    debug_win,
+                    chord_indicator,
+                    glyph_history,
+                    width,
+                )
+                curses.doupdate()
 
-        # handle terminal resize
-        if ch == curses.KEY_RESIZE:
-            height, width = stdscr.getmaxyx()
-            verse_height = height - DEBUG_HEIGHT
-            loom.panel_width = width
-            loom.panel_height = verse_height
-            verse_win.resize(verse_height, width)
-            debug_win.mvwin(verse_height, 0)
-            debug_win.resize(DEBUG_HEIGHT, width)
-            panel = loom.render()
-            _draw_verse(verse_win, panel.lines, verse_height, width)
-            _draw_debug(debug_win, chord_indicator, glyph_history, width)
-            curses.doupdate()
-            continue
+            # drain the bend queue
+            while True:
+                try:
+                    tag, payload = bend_queue.get_nowait()
+                except queue.Empty:
+                    break
 
-        # update chord indicator before processing
-        chord_indicator = _infer_chord_indicator(ch)
+                if tag == "quit":
+                    return
 
-        # map curses key to sp5n keys
-        key_pair = _curses_key_to_sp5n(ch)
-        if key_pair is None:
-            _draw_debug(debug_win, chord_indicator, glyph_history, width)
-            curses.doupdate()
-            continue
+                if tag == "error":
+                    chord_indicator = "x"
+                    _draw_debug(
+                        debug_win,
+                        chord_indicator,
+                        glyph_history,
+                        width,
+                    )
+                    curses.doupdate()
 
-        chord_key, glyph_key = key_pair
+                elif tag == "chord":
+                    assert isinstance(payload, str)
+                    chord_indicator = payload
+                    _draw_debug(
+                        debug_win,
+                        chord_indicator,
+                        glyph_history,
+                        width,
+                    )
+                    curses.doupdate()
 
-        # build inputs dict for spin()
-        inputs: dict[Key, EventKind] = {}
-        if chord_key is not None:
-            inputs[chord_key] = EventKind.RELEASED
-        if glyph_key is not None:
-            inputs[glyph_key] = EventKind.RELEASED
+                elif tag == "bend":
+                    assert isinstance(payload, Bend)
+                    glyph_history += payload.glyph
+                    panel = loom.push(payload)
+                    _draw_verse(verse_win, panel.lines, verse_height, width)
+                    _draw_debug(
+                        debug_win,
+                        chord_indicator,
+                        glyph_history,
+                        width,
+                    )
+                    curses.doupdate()
 
-        # spin the inputs into a bend
-        try:
-            bend: Bend | None = spin(inputs)
-        except SpinError:
-            chord_indicator = "x"
-            _draw_debug(debug_win, chord_indicator, glyph_history, width)
-            curses.doupdate()
-            continue
-
-        if bend is None:
-            continue
-
-        # update glyph history with the bend glyph
-        glyph_history += bend.glyph
-
-        # push bend to loom and get updated panel
-        panel = loom.push(bend)
-
-        # redraw
-        _draw_verse(verse_win, panel.lines, verse_height, width)
-        _draw_debug(debug_win, chord_indicator, glyph_history, width)
-        curses.doupdate()
+    except KeyboardInterrupt:
+        pass
+    finally:
+        listener.stop()
 
 
 def main() -> None:
