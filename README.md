@@ -24,27 +24,32 @@ the underlying pentabased encoding is designed to support this model: documents 
 
 ## architecture
 
+the system has three general components:
+
 ```
-  ┌─────────┐   thread   ┌───────────────────┐
-  │  sp5n   │ ─────────► │      7oom         │
-  │         │            │                   │
-  │ keyboard│ ◄───────── │  plaza  +  loom   │
-  │ display │   changes  │                   │
-  └─────────┘            └───────────────────┘
+  ┌────────┐  bends   ┌──────────────────┐  panels  ┌─────────┐
+  │ wheel  │ ───────► │  plaza  +  loom  │ ───────► │ display │
+  └────────┘          └──────────────────┘          └─────────┘
 ```
 
-the general terms for the components of this system are:
+- **wheel** - streams a thread of input bends from a single author to the loom
+- **loom** - accepts input threads, maintains shared document state, renders panels
+- **plaza** - append-only content-addressed store where screeds are persisted (part of the loom server)
+- **display** - receives rendered panels from the loom and shows them to participants
 
-- **wheel** - an input device that streams a thread of pentabased bends to a loom
-- **loom** - a server that accepts input threads and maintains the shared document state
-- **plaza** - an append-only content-addressed store where screeds are persisted
-- **thread** - a stream of input bends from a single wheel
-- **screed** - a card-sized atomic subtree of a tapestry document
+the loom owns all document logic and rendering - wheels are input-only and displays are output-only, so either can be swapped out independently (a phone as a wheel, a big shared screen as a display)
+
+sp5n is a terminal client that plays both the wheel and display roles
+
+7oom is a local server that plays both the plaza and loom roles
+
+general terms for the data flowing through the system:
+
+- **bend** - a single input event: one mode (bloom/loop/yank/swerve/cant) + one glyph
+- **thread** - a stream of bends from a single wheel
+- **panel** - a fixed-size block of rendered text produced by the loom
+- **screed** - a card-sized atomic subtree of a tapestry document, persisted in the plaza
 - **tapestry** - a narrative text document composed of a tree of screeds
-
-sp5n provides both wheel input and loom display in a single terminal interface
-
-7oom provides both plaza storage and loom logic in a single local server
 
 ## getting started
 
