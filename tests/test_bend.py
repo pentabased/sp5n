@@ -31,9 +31,9 @@ def test_glyph_sets_match_enums():
     assert loop_glyphs == frozenset(k.value for k in LoopKind)
 
 
-def test_nope_is_null_glyph():
-    # nope must be bound to the null glyph so enter-alone triggers it
-    assert CantKind.NOPE == "-"
+def test_suggest_is_null_glyph():
+    # suggest must be bound to the null glyph so enter-alone triggers it
+    assert CantKind.SUGGEST == "-"
 
 
 def test_bend_construction():

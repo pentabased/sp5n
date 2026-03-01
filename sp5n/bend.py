@@ -22,9 +22,13 @@ class BendKind(StrEnum):
 
 
 class CantKind(StrEnum):
-    """cant actions"""
+    """cant actions
 
-    NOPE = "-"  # undo last petal (null glyph - enter alone)
+    the null glyph (enter alone, "-") is reserved for accepting
+    suggestions from the loom (e.g. autocomplete, predictions)
+    """
+
+    SUGGEST = "-"  # accept loom suggestion (null glyph - enter alone)
     THUMP = "2"  # no-op
     QUIT = "Q"  # exit the wheel
 
@@ -35,14 +39,24 @@ cant_glyphs: Final[frozenset[Petal]] = frozenset(
 
 
 class SwerveKind(StrEnum):
-    """shuttle movement actions"""
+    """shuttle movement actions across four axes"""
 
-    BACK = "a"  # move shuttle backward one node
-    FORWARD = "6"  # move shuttle forward one node
-    GROW = "w"  # increase shuttle scope to next larger node
-    SHRINK = "$"  # reduce shuttle scope to next smaller node
-    SCOOP = "Q"  # expand shuttle backward
-    STRETCH = "e"  # expand shuttle forward
+    # scope axis (W/S keys)
+    GROW = "w"  # expand shuttle scope to parent node
+    SHRINK = "$"  # reduce shuttle scope to last child
+
+    # tree axis (A/D keys)
+    BACK = "a"  # move shuttle to previous sibling
+    FORWARD = "6"  # move shuttle to next sibling
+
+    # time axis (Z/X/C keys)
+    UNDO = "#"  # step backward in edit history
+    REDO_LEFT = "x"  # step forward, left branch at a fork
+    REDO_RIGHT = "c"  # step forward, right branch at a fork
+
+    # selection axis (Q/E keys)
+    SCOOP = "Q"  # expand selection one child to the left
+    STRETCH = "e"  # expand selection one child to the right
 
 
 swerve_glyphs: Final[frozenset[Petal]] = frozenset(

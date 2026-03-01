@@ -15,7 +15,7 @@ each change
 
 from dataclasses import dataclass, field
 
-from sp5n.bend import Bend, BendKind, CantKind, LoopKind
+from sp5n.bend import Bend, BendKind, LoopKind
 from sp5n.petal import Petal
 
 # --- node types ---
@@ -99,10 +99,7 @@ class PocketLoom:
                         pass  # other loop kinds reserved for phase 2
 
             case BendKind.CANT:
-                if bend.glyph == CantKind.NOPE:
-                    # remove last petal from current neem
-                    if self._current_neem:
-                        self._current_neem.pop()
+                pass  # suggest reserved for future loom integration
 
             case BendKind.SWERVE:
                 self._swerve(bend.glyph)

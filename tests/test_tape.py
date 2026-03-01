@@ -77,21 +77,16 @@ def test_loop_phrase_starts_new_phrase():
     assert panel.lines[1] == "w"
 
 
-# --- pocket loom: cant / nope ---
+# --- pocket loom: cant ---
 
 
-def test_nope_removes_last_petal():
+def test_cant_suggest_is_no_op():
     lm = loom()
     lm.push(Bend("8", "h"))
     lm.push(Bend("8", "5"))
     panel = lm.push(Bend("k", "-"))
-    assert panel.lines[0] == "h"
-
-
-def test_nope_on_empty_neem_is_safe():
-    lm = loom()
-    panel = lm.push(Bend("k", "-"))
-    assert panel.lines[0] == ""
+    # suggest is reserved — no change to content
+    assert panel.lines[0] == "h5"
 
 
 # --- pocket loom: swerve ---
