@@ -1,0 +1,346 @@
+# tape documents
+
+> "i asked a screed what it wants to be and it told me a song"
+
+## screeds
+
+a **screed** is the atomic unit of a pentabased document. each screed
+holds a single card of content, evoking the hypercard tradition of
+small, self-contained document units.
+
+for tape documents, a screed holds a single verse (or a single meta
+loop such as a banner).
+
+## document hierarchy
+
+the branch levels form a strict ordering:
+
+```
+opus → canto → fit → verse
+```
+
+each level can only contain children of the next level down. a fit
+always contains verses, a canto always contains fits, and so on.
+
+a **tapestry** is the root of a tape document and the entry point for
+indexing and discovery in the plaza. a tapestry links metadata (as
+meta loop screeds) and a single root branch at any level:
+
+```
+tapestry → verse                     (a quick thought)
+tapestry → fit → verses              (a short narrative)
+tapestry → canto → fits → verses     (a longer work)
+tapestry → opus → cantos → ...       (a comprehensive work)
+```
+
+documents grow naturally by inserting parent levels. when a tapestry
+→ verse needs more verses, you create a fit containing the existing
+verse plus new ones, and the tapestry now points to the fit. the
+original verse screed is untouched in the plaza — you just add
+structure above it.
+
+### example: a fit with two verses
+
+```
+Tapestry (root)
+├── Banner (meta: title/summary)
+└── Fit (a narrative arc)
+    ├── Banner (meta: fit-level summary)
+    ├── Verse screed
+    │   ├── Phrase
+    │   │   ├── Neem ("hello")
+    │   │   └── Neem ("world")
+    │   └── Phrase
+    │       └── Neem ...
+    └── Verse screed
+        └── ...
+```
+
+### node types
+
+bottom-up:
+- **Neem** - a bloom: a sequence of petals evoking a single word
+- **Phrase** - a stem: a sequence of neems evoking a thought
+- **Verse** - a branch: a sequence of phrases developing a theme (one screed)
+- **Fit** - a branch: a series of verses tracing a narrative arc
+- **Canto** - a branch: a series of fits portraying a slice of the world
+- **Opus** - a branch: a series of cantos providing a comprehensive view
+- **Tapestry** - the root: metadata + a single root branch at any level
+
+these branch names are taken from the tradition of epic poetry and
+describe subdocuments of increasing size. the hierarchy is not
+recursive — there are a fixed number of branch levels, which imposes
+a finite limit on the size of a single tape document.
+
+### meta loops
+
+a **meta loop** can be attached to any node from tapestry through
+verse. each meta loop occupies its own screed and contains stems
+with metadata such as titles, authorship handles, notes, references,
+and key/value pairs.
+
+a **banner** is an example of a meta loop — a title or summary
+phrase that introduces the branch it's attached to. a tapestry can
+have a banner (document title), a fit can have a banner (chapter
+title), a verse can have a banner (section heading).
+
+the `-` (beat) glyph within a neem acts as a compound-word separator,
+joining multiple words into a single token (like `he770-w476` for
+"hello-world").
+
+## shuttle
+
+the **shuttle** is a cursor within a screed, evoking the action of
+weaving thread onto a loom. it has a **position** and a **scope**.
+
+the shuttle's maximum scope is one screed (one verse for tape
+documents). navigation between screeds is a separate mechanism.
+
+### scope levels (within a verse)
+
+- **petal** - a single petal within a neem
+- **neem** - a whole word
+- **phrase** - a whole line/thought
+- **verse** - the entire screed (max scope)
+
+### visual notation
+
+- `[...]` = shuttle highlighting a node (neem, phrase, or verse scope)
+- `|` = shuttle at petal scope (cursor between/after petals)
+- empty scope shown as `[  ]`
+
+### three principles
+
+1. **on insert, the shuttle takes the scope of the insert** — insert a
+   petal and the shuttle is at petal scope on that petal. insert a new
+   neem and the shuttle is at neem scope on the new neem. insert a new
+   phrase and the shuttle is at phrase scope on the new phrase.
+
+2. **insert direction depends on scope** — when inserting something
+   at the same level or bigger than the current shuttle scope, it goes
+   to the **right** (after). when inserting something smaller than the
+   current shuttle scope, it goes to the **left** (beginning).
+
+3. **only yank can remove or replace content** — bloom and loop only
+   ever create new content. there is no implicit overwriting.
+
+### bloom behavior
+
+bloom always drills down to petal insertion, auto-scaffolding any
+intermediate loops needed to hold a petal at the current position.
+
+after inserting a petal, the shuttle is always at petal scope on the
+newly inserted petal (by principle 1). subsequent blooms insert to the
+right (by principle 2, since petal = petal scope).
+
+**typing into an empty verse:**
+```
+start:       empty verse, shuttle at verse scope [         ]
+bloom h:     drill down left → scaffold phrase/neem,
+             insert h, shuttle → petal scope: h|
+bloom e:     petal scope, insert right: he|
+bloom 7:     he7|
+bloom 7:     he77|
+bloom 0:     he770|
+```
+
+**bloom at neem scope (navigated to an existing neem):**
+```
+state:       he770 [w476]    shuttle at neem scope
+bloom t:     drill down left into neem → insert t at beginning,
+             shuttle → petal scope: he770 t|w476
+```
+
+**bloom at phrase scope:**
+```
+state:       [he770 w476]    shuttle at phrase scope
+             t 8µN
+bloom r:     drill down left → new neem at beginning of phrase,
+             insert r, shuttle → petal scope:
+             r| he770 w476
+             t 8µN
+```
+
+### loop behavior
+
+loop inserts a new empty node of the specified type. the shuttle
+takes the scope of the new node (by principle 1).
+
+**loop-neem while typing (neem > petal → right):**
+```
+state:       he770|          shuttle at petal scope
+loop-neem:   new neem after current neem,
+             shuttle → neem scope: he770 [  ]
+bloom w:     drill down left into empty neem, insert w,
+             shuttle → petal scope: he770 w|
+```
+
+**loop-phrase while typing (phrase > petal → right):**
+```
+state:       he770 w|        shuttle at petal scope
+loop-phrase: new phrase after current phrase,
+             shuttle → phrase scope:
+             he770 w
+             [               ]
+bloom t:     drill down left → scaffold neem, insert t:
+             he770 w
+             t|
+```
+
+**loop-neem at phrase scope (neem < phrase → left):**
+```
+state:       [he770 w476]    shuttle at phrase scope
+loop-neem:   new neem at beginning of phrase,
+             shuttle → neem scope: [  ] he770 w476
+bloom t:     drill down, insert t:
+             t| he770 w476
+```
+
+**loop-phrase at verse scope (phrase < verse → left):**
+```
+state:       [he770 w476]    shuttle at verse scope
+             [t 8µN     ]
+loop-phrase: new phrase at beginning of verse,
+             shuttle → phrase scope:
+             [               ]
+             he770 w476
+             t 8µN
+bloom N:     drill down left → scaffold neem, insert N:
+             N|
+             he770 w476
+             t 8µN
+```
+
+### swerve behavior
+
+swerve moves or rescopes the shuttle without modifying content. there
+are four axes of movement, mapped to a WASD-like layout on the left
+hand (shown here as physical keys → petal glyphs):
+
+```
+  Q   W   E         scoop  grow  stretch      selection / scope
+  A   S   D         back   shrink forward      tree
+  Z   X   C         undo   redo-L redo-R       time
+```
+
+#### scope axis (W/S → grow/shrink)
+
+- **grow** (`w`) - expand shuttle scope to the parent node
+- **shrink** (`$`) - reduce shuttle scope to the last child. at petal
+  scope on a petal within a neem, shrink is a no-op.
+
+when shrinking into a node, the shuttle goes to the **last** (rightmost)
+child — this puts you at the natural "append" position for continued
+typing. when growing, the shuttle expands to cover the parent of the
+current scope.
+
+#### tree axis (A/D → back/forward)
+
+- **back** (`a`) - move shuttle to previous sibling at the current
+  scope level
+- **forward** (`6`) - move shuttle to next sibling at the current
+  scope level
+
+#### time axis (Z/X/C → undo/redo)
+
+- **undo** (`#`) - step backward in edit history
+- **redo-left** (`x`) - step forward in edit history, taking the left
+  branch at a fork
+- **redo-right** (`c`) - step forward in edit history, taking the right
+  branch at a fork
+
+edit history is a **binary tree**, not a linear undo stack. when you
+undo and then make a new edit, you create a fork. navigating forward
+requires choosing left or right at each fork. when there is only one
+path forward, either redo key works.
+
+any number of divergent edits from the same point can be modeled as a
+series of binary splits:
+
+```
+instead of:       you get:
+    A                 A
+   /|\               / \
+  B C D             B   *
+                       / \
+                      C   D
+```
+
+two keys are always enough — binary splits can encode any number of
+choices, you just take a few extra steps to reach deeper branches.
+
+#### selection axis (Q/E → scoop/stretch)
+
+- **scoop** (`Q`) - expand shuttle selection one child to the left
+- **stretch** (`e`) - expand shuttle selection one child to the right
+
+selection allows the shuttle to serve as both cursor and selection by
+growing one child at a time in either direction. (phase 2)
+
+### yank behavior
+
+yank (`y`, left-shift chord) removes or manipulates content. since
+the chord key is left-shift, yank glyphs are mapped to right-hand
+keys — the mirror of swerve's left-hand WASD layout.
+
+#### null yank: delete
+
+the null glyph (left-shift released alone, `-`) triggers **delete**:
+remove the node at the current shuttle scope. this parallels the null
+glyph pattern across all chord modes:
+
+- enter alone → suggest (`-`)
+- space alone → loop-neem (`-`)
+- left-shift alone → delete (`-`)
+
+**delete at neem scope:**
+```
+state:       he770 [w476]    shuttle at neem scope
+yank-delete: remove w476, shuttle → previous neem:
+             he770|
+```
+
+**delete only neem in phrase (multi-phrase verse):**
+```
+state:       he770 w476      shuttle at neem scope on w476
+             [t] 8µN
+yank-delete: remove t, phrase now empty → remove phrase too,
+             shuttle → previous phrase's last neem:
+             he770 w476|
+```
+
+**delete last content in verse:**
+```
+state:       [he770]         shuttle at neem scope, only neem
+yank-delete: remove he770, leave empty verse scaffold,
+             shuttle stays at empty neem: |
+```
+
+after a delete, the shuttle moves to the **previous sibling** at the
+same scope. if no previous sibling exists, it falls back to the
+previous phrase's last neem. if nothing remains, the verse is left
+with one empty phrase containing one empty neem.
+
+#### scratch buffer (phase 2)
+
+the nine rightmost keys are reserved for scratch buffer actions:
+
+```
+physical:     O   P   [         petals:  0   p   -
+              L   ;   '                  7   *   2
+              ,   .   /                  3   4   ?
+```
+
+planned actions include **cut** (remove + push to scratch), **copy**
+(push to scratch without removing), and **paste** (pop from scratch
+and insert at shuttle). key assignments will be finalized when the
+scratch buffer is designed.
+
+### cant behavior
+
+the null cant (enter alone, `-`) is reserved for **accepting
+suggestions** from the loom — e.g. autocomplete predictions,
+completions offered by an attached language model.
+
+undo is handled by **swerve-undo** (`#`, Z key) on the time axis.
+deletion is handled by **yank-delete** (`-`, left-shift alone).

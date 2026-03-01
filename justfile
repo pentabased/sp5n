@@ -9,6 +9,10 @@ init:
     python3 -m venv .venv
     {{venv_bin}}/pip install -e '.[dev]'
 
+# run sp5n tui
+run:
+    {{venv_bin}}/python3 -m sp5n.hexes
+
 # start a python repl inside the virtual environment
 repl:
     {{venv_bin}}/python3
