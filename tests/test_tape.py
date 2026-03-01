@@ -2,7 +2,8 @@
 unit tests for sp5n.tape
 """
 
-from sp5n.bend import Bend, BendKind, CantKind, LoopKind, SwerveKind
+from sp5n.bend import Bend
+from sp5n.petal import Petal
 from sp5n.tape import Panel, PocketLoom, render_neem, render_phrase
 
 
@@ -43,15 +44,15 @@ def test_panel_is_frozen():
 
 def test_bloom_adds_petal():
     lm = loom()
-    panel = lm.push(Bend(BendKind.BLOOM, "h"))
+    panel = lm.push(Bend("8", "h"))
     assert panel.lines[0] == "h"
 
 
 def test_bloom_builds_neem():
     lm = loom()
-    lm.push(Bend(BendKind.BLOOM, "h"))
-    lm.push(Bend(BendKind.BLOOM, "5"))
-    panel = lm.push(Bend(BendKind.BLOOM, "7"))
+    lm.push(Bend("8", "h"))
+    lm.push(Bend("8", "5"))
+    panel = lm.push(Bend("8", "7"))
     assert panel.lines[0] == "h57"
 
 
@@ -60,18 +61,18 @@ def test_bloom_builds_neem():
 
 def test_loop_neem_starts_new_neem():
     lm = loom()
-    lm.push(Bend(BendKind.BLOOM, "h"))
-    lm.push(Bend(BendKind.BLOOM, "5"))
-    lm.push(Bend(BendKind.LOOP, LoopKind.NEEM))
-    panel = lm.push(Bend(BendKind.BLOOM, "w"))
+    lm.push(Bend("8", "h"))
+    lm.push(Bend("8", "5"))
+    lm.push(Bend("7", "-"))
+    panel = lm.push(Bend("8", "w"))
     assert panel.lines[0] == "h5 w"
 
 
 def test_loop_phrase_starts_new_phrase():
     lm = loom()
-    lm.push(Bend(BendKind.BLOOM, "h"))
-    lm.push(Bend(BendKind.LOOP, LoopKind.PHRASE))
-    panel = lm.push(Bend(BendKind.BLOOM, "w"))
+    lm.push(Bend("8", "h"))
+    lm.push(Bend("7", "p"))
+    panel = lm.push(Bend("8", "w"))
     assert panel.lines[0] == "h"
     assert panel.lines[1] == "w"
 
@@ -81,15 +82,15 @@ def test_loop_phrase_starts_new_phrase():
 
 def test_nope_removes_last_petal():
     lm = loom()
-    lm.push(Bend(BendKind.BLOOM, "h"))
-    lm.push(Bend(BendKind.BLOOM, "5"))
-    panel = lm.push(Bend(BendKind.CANT, CantKind.NOPE))
+    lm.push(Bend("8", "h"))
+    lm.push(Bend("8", "5"))
+    panel = lm.push(Bend("k", "-"))
     assert panel.lines[0] == "h"
 
 
 def test_nope_on_empty_neem_is_safe():
     lm = loom()
-    panel = lm.push(Bend(BendKind.CANT, CantKind.NOPE))
+    panel = lm.push(Bend("k", "-"))
     assert panel.lines[0] == ""
 
 
@@ -98,35 +99,35 @@ def test_nope_on_empty_neem_is_safe():
 
 def test_swerve_back_moves_to_previous_neem():
     lm = loom()
-    lm.push(Bend(BendKind.BLOOM, "h"))
-    lm.push(Bend(BendKind.LOOP, LoopKind.NEEM))
-    lm.push(Bend(BendKind.BLOOM, "w"))
-    lm.push(Bend(BendKind.SWERVE, SwerveKind.BACK))
+    lm.push(Bend("8", "h"))
+    lm.push(Bend("7", "-"))
+    lm.push(Bend("8", "w"))
+    lm.push(Bend("c", "a"))
     # now typing should go into the first neem
-    panel = lm.push(Bend(BendKind.BLOOM, "5"))
+    panel = lm.push(Bend("8", "5"))
     assert panel.lines[0] == "h5 w"
 
 
 def test_swerve_forward_moves_to_next_neem():
     lm = loom()
-    lm.push(Bend(BendKind.BLOOM, "h"))
-    lm.push(Bend(BendKind.LOOP, LoopKind.NEEM))
-    lm.push(Bend(BendKind.SWERVE, SwerveKind.BACK))
-    lm.push(Bend(BendKind.SWERVE, SwerveKind.FORWARD))
+    lm.push(Bend("8", "h"))
+    lm.push(Bend("7", "-"))
+    lm.push(Bend("c", "a"))
+    lm.push(Bend("c", "6"))
     # should be back on second neem
-    panel = lm.push(Bend(BendKind.BLOOM, "w"))
+    panel = lm.push(Bend("8", "w"))
     assert panel.lines[0] == "h w"
 
 
 def test_swerve_back_at_start_is_safe():
     lm = loom()
-    panel = lm.push(Bend(BendKind.SWERVE, SwerveKind.BACK))
+    panel = lm.push(Bend("c", "a"))
     assert panel.lines[0] == ""
 
 
 def test_swerve_forward_at_end_is_safe():
     lm = loom()
-    panel = lm.push(Bend(BendKind.SWERVE, SwerveKind.FORWARD))
+    panel = lm.push(Bend("c", "6"))
     assert panel.lines[0] == ""
 
 
@@ -149,8 +150,10 @@ def test_panel_pads_empty_lines():
 
 def test_long_line_wraps():
     lm = PocketLoom(panel_width=5, panel_height=10)
-    for glyph in ["h", "e", "7", "7", "0", "w", "4", "7", "6"]:
-        lm.push(Bend(BendKind.BLOOM, glyph))
+    # he770-w476 ("hello-world" as a compound neem)
+    petals: list[Petal] = ["h", "e", "7", "7", "0", "-", "w", "4", "7", "6"]
+    for glyph in petals:
+        lm.push(Bend("8", glyph))
     panel = lm.render()
     assert panel.lines[0] == "he770"
-    assert panel.lines[1] == "w476"
+    assert panel.lines[1] == "-w476"

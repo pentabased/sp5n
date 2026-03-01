@@ -18,7 +18,6 @@ from dataclasses import dataclass, field
 from sp5n.bend import Bend, BendKind, CantKind, LoopKind
 from sp5n.petal import Petal
 
-
 # --- node types ---
 
 # mutable during authoring - built incrementally as bends arrive

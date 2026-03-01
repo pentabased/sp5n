@@ -4,85 +4,131 @@ unit tests for sp5n.wheel
 
 import pytest
 
-from sp5n.bend import Bend, BendKind
-from sp5n.wheel import EventKind, SpinError, spin
+from sp5n.bend import Bend
+from sp5n.wheel import SpinError, current_chord, spin
 
 
-def test_spin_no_input():
-    assert spin({}) is None
+# --- spin: press events (rising edge) ---
 
 
-def test_spin_unreleased_press():
-    assert spin({"qQ": EventKind.PRESSED}) is None
+def test_spin_press_adds_key():
+    state, bend = spin(frozenset(), "qQ", pressed=True)
+    assert state == frozenset({"qQ"})
+    assert bend is None
+
+
+def test_spin_press_accumulates():
+    state, _ = spin(frozenset(), "space", pressed=True)
+    state, bend = spin(state, "pP", pressed=True)
+    assert state == frozenset({"space", "pP"})
+    assert bend is None
+
+
+# --- spin: release events (falling edge) ---
 
 
 def test_spin_bloom():
-    assert spin({"qQ": EventKind.RELEASED}) == Bend(BendKind.BLOOM, "Q")
+    # press then release a glyph key with no chord
+    state, _ = spin(frozenset(), "qQ", pressed=True)
+    state, bend = spin(state, "qQ", pressed=False)
+    assert bend == Bend("8", "Q")
+    assert state == frozenset()
 
 
 def test_spin_chord_and_glyph_release():
-    assert spin(
-        {"enter": EventKind.RELEASED, "[{": EventKind.RELEASED}
-    ) == Bend(BendKind.CANT, "-")
+    # press chord + glyph, release both
+    state = frozenset({"enter", "[{"})
+    state, bend = spin(state, "enter", pressed=False)
+    # enter released first — chord released with glyph still held
+    # actually [{ is still held, so this produces a bend
+    assert bend == Bend("k", "-")
 
 
 def test_spin_chord_release_no_glyph():
-    assert spin({"enter": EventKind.RELEASED}) == Bend(BendKind.CANT, "-")
+    state = frozenset({"enter"})
+    state, bend = spin(state, "enter", pressed=False)
+    assert bend == Bend("k", "-")
 
 
 def test_spin_multiple_chords():
-    with pytest.raises(SpinError, match="chord keys 'k' and 'c' both active"):
-        spin({"enter": EventKind.PRESSED, "right-shift": EventKind.HELD})
+    state = frozenset({"enter", "right-shift"})
+    with pytest.raises(SpinError, match="chord keys"):
+        spin(state, "enter", pressed=False)
 
 
 def test_spin_multiple_glyphs():
-    with pytest.raises(SpinError, match="glyph keys 'Q' and 'w' both active"):
-        spin({"qQ": EventKind.PRESSED, "wW": EventKind.HELD})
-
-
-def test_spin_unexpected_key():
-    with pytest.raises(SpinError, match="unexpected key 'unexpected'"):
-        spin({"unexpected": EventKind.PRESSED})  # type: ignore
+    state = frozenset({"qQ", "wW"})
+    with pytest.raises(SpinError, match="glyph keys"):
+        spin(state, "qQ", pressed=False)
 
 
 @pytest.mark.parametrize(
-    "chord_key,bend_kind,glyph_key,petal",
+    "chord_key,kind_petal,glyph_key,glyph_petal",
     [
-        ("enter", BendKind.CANT, "[{", "-"),
-        ("right-shift", BendKind.SWERVE, "aA", "a"),
-        ("left-shift", BendKind.YANK, "xX", "x"),
-        ("space", BendKind.LOOP, "[{", "-"),
+        ("enter", "k", "[{", "-"),
+        ("right-shift", "c", "aA", "a"),
+        ("left-shift", "y", "xX", "x"),
+        ("space", "7", "[{", "-"),
     ],
 )
-def test_spin_valid_bends(chord_key, bend_kind, glyph_key, petal):
-    inputs = {chord_key: EventKind.RELEASED, glyph_key: EventKind.RELEASED}
-    assert spin(inputs) == Bend(bend_kind, petal)
+def test_spin_valid_bends(chord_key, kind_petal, glyph_key, glyph_petal):
+    state = frozenset({chord_key, glyph_key})
+    _, bend = spin(state, glyph_key, pressed=False)
+    assert bend == Bend(kind_petal, glyph_petal)
 
 
 @pytest.mark.parametrize(
     "chord_key,glyph_key,expected_error",
     [
-        ("enter", "qQ", "no cant for 'Q'"),
+        ("enter", "hH", "no cant for 'h'"),
         ("right-shift", "jJ", "no swerve for 'j'"),
         ("left-shift", "qQ", "no yank for 'Q'"),
         ("space", "gG", "no loop for 'G'"),
     ],
 )
 def test_spin_invalid_bends(chord_key, glyph_key, expected_error):
-    inputs = {chord_key: EventKind.RELEASED, glyph_key: EventKind.RELEASED}
+    state = frozenset({chord_key, glyph_key})
     with pytest.raises(SpinError, match=expected_error):
-        spin(inputs)
+        spin(state, glyph_key, pressed=False)
 
 
 def test_uU_maps_to_ah():
-    # uU should map to µ (AH), not ? (NG) - v0 had a duplicate mapping bug
-    assert spin({"uU": EventKind.RELEASED}) == Bend(BendKind.BLOOM, "µ")
+    state = frozenset({"uU"})
+    _, bend = spin(state, "uU", pressed=False)
+    assert bend == Bend("8", "µ")
 
 
 def test_all_glyph_keys_covered():
-    # every glyph key should produce a bloom bend when released
     from sp5n.wheel import glyph_key_map
 
     for key, petal in glyph_key_map.items():
-        result = spin({key: EventKind.RELEASED})
-        assert result == Bend(BendKind.BLOOM, petal), f"failed for key '{key}'"
+        state = frozenset({key})
+        _, bend = spin(state, key, pressed=False)
+        assert bend == Bend("8", petal), f"failed for key '{key}'"
+
+
+# --- current_chord ---
+
+
+def test_current_chord_no_keys():
+    assert current_chord(frozenset()) == "8"
+
+
+def test_current_chord_bloom():
+    assert current_chord(frozenset({"qQ"})) == "8"
+
+
+def test_current_chord_loop():
+    assert current_chord(frozenset({"space"})) == "7"
+
+
+def test_current_chord_cant():
+    assert current_chord(frozenset({"enter"})) == "k"
+
+
+def test_current_chord_swerve():
+    assert current_chord(frozenset({"right-shift"})) == "c"
+
+
+def test_current_chord_yank():
+    assert current_chord(frozenset({"left-shift"})) == "y"

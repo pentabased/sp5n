@@ -37,8 +37,8 @@ def test_nope_is_null_glyph():
 
 
 def test_bend_construction():
-    bend = Bend(kind=BendKind.BLOOM, glyph="a")
-    assert bend.kind == BendKind.BLOOM
+    bend = Bend(kind="8", glyph="a")
+    assert bend.kind == "8"
     assert bend.glyph == "a"
 
 

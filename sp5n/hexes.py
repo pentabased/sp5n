@@ -6,6 +6,9 @@ plays both wheel (keyboard input) and display (panel rendering) roles
 input is handled by evdev in a reader thread; curses is used only for
 terminal display. a thread-safe queue bridges the two.
 
+the evdev reader is stateless — it sends raw key events on the queue.
+the main loop owns key state and calls spin().
+
 layout:
   top portion  - verse panel (rendered output from PocketLoom)
   bottom strip - debug bar: chord indicator + scrolling glyph history
@@ -18,7 +21,7 @@ chord indicator shows current mode as a single highlighted glyph:
   k  cant   (enter held)
   x  error  (invalid key combination)
 
-exit with ctrl-c
+exit with enter+Q (cant-quit) or ctrl-c
 """
 
 import curses
@@ -29,13 +32,13 @@ from typing import Final
 import evdev
 import evdev.ecodes as ec
 
-from sp5n.bend import Bend
+from sp5n.bend import BendKind, CantKind
 from sp5n.tape import PocketLoom
 from sp5n.wheel import (
-    EventKind,
     Key,
+    KeyState,
     SpinError,
-    chord_key_map,
+    current_chord,
     spin,
 )
 
@@ -125,25 +128,14 @@ def _find_keyboard() -> evdev.InputDevice:
     )
 
 
-def _current_chord(pressed: set[Key]) -> str:
-    """return the chord indicator glyph for the currently held keys"""
-    for chord_key, bend_kind in chord_key_map.items():
-        if chord_key in pressed:
-            return bend_kind.value
-    return "8"  # bloom (no chord)
-
-
 def _evdev_reader(
     device: evdev.InputDevice,
-    bend_queue: queue.Queue[tuple[str, object]],
+    key_queue: "queue.Queue[tuple[Key, bool]]",
 ) -> None:
-    """read evdev events in a blocking loop and put them on the queue
+    """read evdev events and forward mapped key events on the queue
 
-    - runs in a daemon thread
+    stateless. runs in a daemon thread. sends (Key, pressed) tuples.
     """
-    pressed: set[Key] = set()
-    ctrl_held = False
-
     for event in device.read_loop():
         if event.type != ec.EV_KEY:
             continue
@@ -152,48 +144,11 @@ def _evdev_reader(
         if event.value == 2:
             continue
 
-        # track ctrl for ctrl-c detection
-        if event.code == ec.KEY_LEFTCTRL:
-            ctrl_held = event.value == 1
-            continue
-
-        # ctrl-c detection
-        if event.code == ec.KEY_C and ctrl_held and event.value == 1:
-            bend_queue.put(("quit", None))
-            return
-
         sp5n_key = _EVDEV_KEY_MAP.get(event.code)
         if sp5n_key is None:
             continue
 
-        if event.value == 1:  # press
-            if sp5n_key in pressed:
-                continue  # filter repeat (shouldn't happen with value==2 filtered)
-            pressed.add(sp5n_key)
-            indicator = _current_chord(pressed)
-            bend_queue.put(("chord", indicator))
-
-        elif event.value == 0:  # release
-            pressed.discard(sp5n_key)
-
-            # build inputs: held keys as HELD, released key as RELEASED
-            inputs: dict[Key, EventKind] = {}
-            for held_key in pressed:
-                inputs[held_key] = EventKind.HELD
-            inputs[sp5n_key] = EventKind.RELEASED
-
-            indicator = _current_chord(pressed)
-
-            try:
-                bend = spin(inputs)
-            except SpinError:
-                bend_queue.put(("error", None))
-                bend_queue.put(("chord", indicator))
-                continue
-
-            if bend is not None:
-                bend_queue.put(("bend", bend))
-            bend_queue.put(("chord", indicator))
+        key_queue.put((sp5n_key, event.value == 1))
 
 
 def _draw_debug(
@@ -255,6 +210,7 @@ def run(stdscr: "curses.window") -> None:
 
     chord_indicator = "8"  # default: bloom mode
     glyph_history = ""
+    key_state: KeyState = frozenset()
 
     # initial render
     panel = loom.render()
@@ -264,10 +220,10 @@ def run(stdscr: "curses.window") -> None:
 
     # find keyboard and start evdev reader thread
     device = _find_keyboard()
-    bend_queue: queue.Queue[tuple[str, object]] = queue.Queue()
+    key_queue: queue.Queue[tuple[Key, bool]] = queue.Queue()
     reader = threading.Thread(
         target=_evdev_reader,
-        args=(device, bend_queue),
+        args=(device, key_queue),
         daemon=True,
     )
     reader.start()
@@ -294,17 +250,17 @@ def run(stdscr: "curses.window") -> None:
                 )
                 curses.doupdate()
 
-            # drain the bend queue
+            # drain the key event queue
             while True:
                 try:
-                    tag, payload = bend_queue.get_nowait()
+                    key, pressed = key_queue.get_nowait()
                 except queue.Empty:
                     break
 
-                if tag == "quit":
-                    return
-
-                if tag == "error":
+                try:
+                    key_state, bend = spin(key_state, key, pressed)
+                except SpinError:
+                    key_state = key_state - {key}
                     chord_indicator = "x"
                     _draw_debug(
                         debug_win,
@@ -313,30 +269,29 @@ def run(stdscr: "curses.window") -> None:
                         width,
                     )
                     curses.doupdate()
+                    continue
 
-                elif tag == "chord":
-                    assert isinstance(payload, str)
-                    chord_indicator = payload
-                    _draw_debug(
-                        debug_win,
-                        chord_indicator,
-                        glyph_history,
-                        width,
-                    )
-                    curses.doupdate()
+                chord_indicator = current_chord(key_state)
 
-                elif tag == "bend":
-                    assert isinstance(payload, Bend)
-                    glyph_history += payload.glyph
-                    panel = loom.push(payload)
+                if bend is not None:
+                    # cant-quit: exit the TUI
+                    if (
+                        bend.kind == BendKind.CANT
+                        and bend.glyph == CantKind.QUIT
+                    ):
+                        return
+
+                    glyph_history += bend.glyph
+                    panel = loom.push(bend)
                     _draw_verse(verse_win, panel.lines, verse_height, width)
-                    _draw_debug(
-                        debug_win,
-                        chord_indicator,
-                        glyph_history,
-                        width,
-                    )
-                    curses.doupdate()
+
+                _draw_debug(
+                    debug_win,
+                    chord_indicator,
+                    glyph_history,
+                    width,
+                )
+                curses.doupdate()
 
     except KeyboardInterrupt:
         pass

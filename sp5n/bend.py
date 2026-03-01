@@ -26,6 +26,7 @@ class CantKind(StrEnum):
 
     NOPE = "-"  # undo last petal (null glyph - enter alone)
     THUMP = "2"  # no-op
+    QUIT = "Q"  # exit the wheel
 
 
 cant_glyphs: Final[frozenset[Petal]] = frozenset(
@@ -80,9 +81,9 @@ loop_glyphs: Final[frozenset[Petal]] = frozenset(
 )
 
 
-@dataclass
+@dataclass(frozen=True)
 class Bend:
-    """a single input event: one mode + one petal glyph"""
+    """a single input event encoded as two petal glyphs (10 bits)"""
 
-    kind: BendKind
+    kind: Petal
     glyph: Petal

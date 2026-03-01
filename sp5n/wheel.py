@@ -1,8 +1,8 @@
 """
-wheel module maps keyboard input events to bends in a thread
+wheel module maps keyboard input events to bends
 
-spin() takes a snapshot of active key states and returns a Bend when a key
-is released, or None if no bend is ready yet
+spin() takes the current key state and a new key event, returns the
+updated key state and optionally a bend (emitted on falling edges)
 """
 
 from enum import Enum
@@ -57,6 +57,8 @@ type Key = Literal[
     "right-shift",
 ]
 
+type KeyState = frozenset[Key]
+
 # maps glyph keys to petals
 # q-row: Q w e r t y µ 5 0 p -
 # a-row: a $ 6 f G h j k 7 * 2
@@ -96,30 +98,62 @@ glyph_key_map: Final[dict[Key, Petal]] = {
     "/?": "?",  # NG
 }
 
-# maps chord keys to bend kinds
-chord_key_map: Final[dict[Key, BendKind]] = {
-    "enter": BendKind.CANT,
-    "space": BendKind.LOOP,
-    "left-shift": BendKind.YANK,
-    "right-shift": BendKind.SWERVE,
+# maps chord keys to bend kind petals
+chord_key_map: Final[dict[Key, Petal]] = {
+    "enter": "k",  # cant
+    "space": "7",  # loop
+    "left-shift": "y",  # yank
+    "right-shift": "c",  # swerve
 }
 
 
 class EventKind(Enum):
-    """key event states"""
+    """key event states used internally by _evaluate"""
 
     RELEASED = -1
     HELD = 0
-    PRESSED = 1
 
 
 class SpinError(RuntimeError):
-    """raised when spin() is called with ambiguous or invalid inputs"""
+    """raised when spin() encounters ambiguous or invalid inputs"""
 
 
-def spin(inputs: dict[Key, EventKind]) -> Bend | None:
+def current_chord(state: KeyState) -> Petal:
+    """return the chord petal for the currently held keys"""
+    for chord_key, petal in chord_key_map.items():
+        if chord_key in state:
+            return petal
+    return "8"  # bloom (no chord key held)
+
+
+def spin(
+    state: KeyState, key: Key, pressed: bool
+) -> tuple[KeyState, Bend | None]:
     """
-    try to spin a set of key input events into a bend
+    update key state with a new key event and emit a bend on falling edges
+
+    on press (rising edge): adds key to state, returns None
+    on release (falling edge): removes key from state, evaluates for a bend
+
+    raises SpinError if:
+    - multiple chord keys are active simultaneously
+    - multiple glyph keys are active simultaneously
+    - the glyph is not valid for the active chord kind
+    """
+    if pressed:
+        return (state | {key}, None)
+
+    # falling edge: build inputs snapshot and evaluate
+    new_state = state - {key}
+    inputs: dict[Key, EventKind] = {k: EventKind.HELD for k in new_state}
+    inputs[key] = EventKind.RELEASED
+    bend = _evaluate(inputs)
+    return (new_state, bend)
+
+
+def _evaluate(inputs: dict[Key, EventKind]) -> Bend | None:
+    """
+    try to evaluate a set of key input states into a bend
 
     returns a Bend when exactly one key is released, None if nothing is ready
 
@@ -129,7 +163,7 @@ def spin(inputs: dict[Key, EventKind]) -> Bend | None:
     - the glyph is not valid for the active chord kind
     - an unrecognized key is present
     """
-    chord: BendKind | None = None
+    chord: Petal | None = None
     chord_released: bool = False
     glyph: Petal | None = None
     glyph_released: bool = False
@@ -164,7 +198,7 @@ def spin(inputs: dict[Key, EventKind]) -> Bend | None:
     if chord is None:
         if glyph is None:
             return None
-        return Bend(BendKind.BLOOM, glyph)
+        return Bend("8", glyph)
 
     # chord with no glyph - use null glyph
     if glyph is None:
