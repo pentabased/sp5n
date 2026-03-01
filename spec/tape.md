@@ -69,11 +69,13 @@ the rest of the branch loops in increasing order of size are:
 - canto: a series of fits portraying a slice of the world
 - opus: a series of cantos providing a comprehensive view of a system within the world
 
+the branch levels form a strict ordering where each level can only contain children of the next level down: opus → canto → fit → verse
+
 these branch loop names are taken from the tradition of epic poetry and describe subdocuments of increasing size with an opus (containing a series of cantos) being the largest kind of text document that can be described within the tape scheme
 
 ## meta
 
-a meta loop is similar to a branch loop except that while each scale of branch loop has a specific loop parent and specific loop or stem children a meta loop can be a child of any root or branch loop (but not a meta loop) and can contain from one or more of a single kind of stem loop
+a meta loop can be a child of any node from the tapestry root through a verse (but not of another meta loop) and can contain one or more of a single kind of stem loop
 
 meta loops allow metadata to be attached to root and branch loops
 
@@ -81,12 +83,50 @@ each meta loop occupies its own screed together with its child stems and their c
 
 meta loops may or may not contain blooms that are rendered to a panel
 
+a banner is an example of a meta loop — a title or summary phrase that introduces the node it is attached to — a tapestry can have a banner for its document title and a fit can have a banner for its chapter title and a verse can have a banner for a section heading
+
 ## root
 
-a root tape loop is always the first loop in the first screed in a tape mosaic document
+a tapestry is the root loop of a tape document and the entry point for indexing and discovery in the plaza
 
-a tape loop can contain a series of meta loops that contain metadata about the document title, authorship, themes and goals
+a tapestry occupies an entire screed unto itself and links to separate screeds where its meta loops and its root branch loop are described
 
-a tape loop can hold a single child branch loop that then contains either further child branch loops or in the case of a verse directly holds stem loops
+a tapestry can contain a series of meta loops that contain metadata about the document title, authorship, themes and goals
 
-a tape loop occupies an entire screed unto itself and links to separate screeds where any meta loops and its opening document branch loop are described
+a tapestry links a single root branch loop at any level of the branch hierarchy — a document can be as small as a single verse or as large as a full opus
+
+different documents naturally want to be different sizes so the root branch level is flexible:
+
+- tapestry → verse (a quick thought)
+- tapestry → fit → verses (a short narrative)
+- tapestry → canto → fits → verses (a longer work)
+- tapestry → opus → cantos → fits → verses (a comprehensive work)
+
+documents grow by inserting parent levels — when a tapestry → verse needs more verses a new fit is created containing the existing verse plus new ones and the tapestry now points to the fit — the original verse screed is untouched in the plaza
+
+## shuttle
+
+the shuttle is a cursor within a screed, evoking the action of weaving thread onto a loom
+
+a shuttle has a position and a scope
+
+the shuttle's maximum scope is one screed (one verse for tape documents) and navigation between screeds is a separate mechanism
+
+### scope levels
+
+within a verse the shuttle has four scope levels:
+
+- **petal** - a single petal within a neem
+- **neem** - a whole word
+- **phrase** - a whole thought
+- **verse** - the entire screed
+
+### three principles
+
+the shuttle's behavior follows three principles:
+
+1. **on insert the shuttle takes the scope of the insert** — insert a petal and the shuttle is at petal scope on that petal; insert a new neem and the shuttle is at neem scope on the new neem; insert a new phrase and the shuttle is at phrase scope on the new phrase
+
+2. **insert direction depends on scope** — when inserting something at the same level or bigger than the current shuttle scope it goes to the right (after); when inserting something smaller than the current shuttle scope it goes to the left (beginning)
+
+3. **only yank can remove or replace content** — bloom and loop only ever create new content; there is no implicit overwriting

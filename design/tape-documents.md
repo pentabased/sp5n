@@ -8,32 +8,81 @@ a **screed** is the atomic unit of a pentabased document. each screed
 holds a single card of content, evoking the hypercard tradition of
 small, self-contained document units.
 
-for tape documents, a screed holds a single verse (or a banner).
+for tape documents, a screed holds a single verse (or a single meta
+loop such as a banner).
 
 ## document hierarchy
 
+the branch levels form a strict ordering:
+
+```
+opus → canto → fit → verse
+```
+
+each level can only contain children of the next level down. a fit
+always contains verses, a canto always contains fits, and so on.
+
+a **tapestry** is the root of a tape document and the entry point for
+indexing and discovery in the plaza. a tapestry links metadata (as
+meta loop screeds) and a single root branch at any level:
+
+```
+tapestry → verse                     (a quick thought)
+tapestry → fit → verses              (a short narrative)
+tapestry → canto → fits → verses     (a longer work)
+tapestry → opus → cantos → ...       (a comprehensive work)
+```
+
+documents grow naturally by inserting parent levels. when a tapestry
+→ verse needs more verses, you create a fit containing the existing
+verse plus new ones, and the tapestry now points to the fit. the
+original verse screed is untouched in the plaza — you just add
+structure above it.
+
+### example: a fit with two verses
+
 ```
 Tapestry (root)
-└── Fit (a story/chapter)
-    ├── Banner screed (optional title/summary)
+├── Banner (meta: title/summary)
+└── Fit (a narrative arc)
+    ├── Banner (meta: fit-level summary)
     ├── Verse screed
     │   ├── Phrase
     │   │   ├── Neem ("hello")
     │   │   └── Neem ("world")
     │   └── Phrase
     │       └── Neem ...
-    ├── Verse screed
-    │   └── ...
-    └── ...
+    └── Verse screed
+        └── ...
 ```
 
-node types bottom-up:
-- **Neem** - a sequence of petals evoking a single word
-- **Phrase** - a sequence of neems evoking a thought
-- **Verse** - a sequence of phrases developing a theme (one screed)
-- **Banner** - a title or summary phrase (one screed)
-- **Fit** - a series of screeds developing a narrative
-- **Tapestry** - the root, a collection of fits
+### node types
+
+bottom-up:
+- **Neem** - a bloom: a sequence of petals evoking a single word
+- **Phrase** - a stem: a sequence of neems evoking a thought
+- **Verse** - a branch: a sequence of phrases developing a theme (one screed)
+- **Fit** - a branch: a series of verses tracing a narrative arc
+- **Canto** - a branch: a series of fits portraying a slice of the world
+- **Opus** - a branch: a series of cantos providing a comprehensive view
+- **Tapestry** - the root: metadata + a single root branch at any level
+
+these branch names are taken from the tradition of epic poetry and
+describe subdocuments of increasing size. the hierarchy is not
+recursive — there are a fixed number of branch levels, which imposes
+a finite limit on the size of a single tape document.
+
+### meta loops
+
+a **meta loop** can be attached to any node from tapestry through
+verse. each meta loop occupies its own screed and contains stems
+with metadata such as titles, authorship handles, notes, references,
+and key/value pairs.
+
+a **banner** is an example of a meta loop — a title or summary
+phrase that introduces the branch it's attached to. a tapestry can
+have a banner (document title), a fit can have a banner (chapter
+title), a verse can have a banner (section heading).
 
 the `-` (beat) glyph within a neem acts as a compound-word separator,
 joining multiple words into a single token (like `he770-w476` for

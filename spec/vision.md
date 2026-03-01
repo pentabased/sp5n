@@ -45,13 +45,18 @@ the gallery display is the natural expression of the plaza-as-public-square idea
 
 a core goal of the system is to put all participants on equal footing regardless of their nature
 
-the loom is designed to accept input threads from:
-- humans typing on keyboard wheels
-- humans gesturing on touch or motion wheels
-- computational agents mapping output tokens to bends
-- in the longer term: other kinds of persons (cetaceans, corvids, canines) via wheels designed for their particular modes of expression
+the loom accepts input threads from any number of wheels and all authors are peers — no stream is privileged over another
 
-the working display shows all active input streams side by side with no stream privileged over another
+there are two kinds of wheel distinguished by input granularity not by who is using them:
+
+- **keyboard wheels** stream bends one petal at a time with a shuttle cursor tracking position and scope — suited to physical keyboards, touch surfaces, gestural input
+- **token wheels** operate on the document tree with position-addressed operations at neem or phrase granularity — suited to computational agents, dictation systems, or any input source that naturally produces words and sentences
+
+a human could use a token wheel (e.g. dictation) and an animal could use a keyboard wheel — the wheel type is about the input device not the nature of the participant
+
+in the longer term the system aims to support other kinds of persons (cetaceans, corvids, canines) via wheels designed for their particular modes of expression
+
+the working display shows each author's editing pane side by side — keyboard-wheel panes show the shuttle cursor while token-wheel panes do not — and authors can access each other's panes like scratch buffers
 
 ## documents as public infrastructure
 
