@@ -41,11 +41,17 @@ def render_phrase(phrase: Phrase) -> str:
 
 @dataclass(frozen=True)
 class Panel:
-    """a fixed-size block of rendered text produced by the loom"""
+    """a fixed-size block of rendered text produced by the loom
+
+    shuttle is a tuple of (line, start_col, end_col) segments indicating
+    the highlighted neem. usually one segment; two if a neem wraps.
+    start_col == end_col means a zero-width cursor (empty neem).
+    """
 
     width: int
     height: int
     lines: tuple[str, ...]
+    shuttle: tuple[tuple[int, int, int], ...]
 
 
 # --- pocket loom ---
@@ -104,8 +110,11 @@ class PocketLoom:
             case BendKind.SWERVE:
                 self._swerve(bend.glyph)
 
+            case BendKind.YANK:
+                self._yank(bend.glyph)
+
             case _:
-                pass  # yank reserved for phase 2
+                pass
 
         return self.render()
 
@@ -136,16 +145,93 @@ class PocketLoom:
             case _:
                 pass  # SCOOP and STRETCH reserved for phase 2
 
+    def _yank(self, glyph: Petal) -> None:
+        """remove or manipulate content at the shuttle"""
+        from sp5n.bend import YankKind
+
+        match glyph:
+            case YankKind.DELETE:
+                self._delete_at_shuttle()
+            case _:
+                pass  # scratch buffer reserved for phase 2
+
+    def _delete_at_shuttle(self) -> None:
+        """remove the neem at the shuttle and adjust position"""
+        phrase = self._current_phrase
+
+        if len(self.verse) == 1 and len(phrase) == 1:
+            # last neem in last phrase — clear it, don't remove
+            phrase[0] = []
+            return
+
+        # remove the current neem
+        del phrase[self._neem_idx]
+
+        if not phrase:
+            # phrase is now empty — remove it too
+            del self.verse[self._phrase_idx]
+            # shuttle moves to previous phrase's last neem
+            if self._phrase_idx > 0:
+                self._phrase_idx -= 1
+            self._neem_idx = len(self._current_phrase) - 1
+        elif self._neem_idx >= len(phrase):
+            # was the last neem in phrase — step back
+            self._neem_idx = len(phrase) - 1
+
+    def _compute_shuttle(
+        self, phrase_start_lines: list[int]
+    ) -> tuple[tuple[int, int, int], ...]:
+        """compute shuttle highlight segments in rendered output"""
+        phrase = self._current_phrase
+        neem = self._current_neem
+
+        # find column of shuttle neem within rendered phrase
+        col = 0
+        for n_idx, n in enumerate(phrase):
+            if n_idx == self._neem_idx:
+                break
+            if n:  # empty neems skipped in rendering
+                col += len(render_neem(n)) + 1  # +1 for space
+
+        neem_len = len(render_neem(neem))
+        start = col
+        end = col + neem_len
+
+        # map through line wrapping
+        base_line = phrase_start_lines[self._phrase_idx]
+        start_line = base_line + start // self.panel_width
+        start_col = start % self.panel_width
+        if end > start:
+            end_line = base_line + (end - 1) // self.panel_width
+            end_col = (end - 1) % self.panel_width + 1
+        else:
+            end_line = start_line
+            end_col = start_col
+
+        if start_line == end_line:
+            return ((start_line, start_col, end_col),)
+        else:
+            # neem wraps across line boundary — two segments
+            return (
+                (start_line, start_col, self.panel_width),
+                (end_line, 0, end_col),
+            )
+
     def render(self) -> Panel:
         """render the current verse to a panel"""
         lines: list[str] = []
+        phrase_start_lines: list[int] = []
+
         for phrase in self.verse:
+            phrase_start_lines.append(len(lines))
             line = render_phrase(phrase)
             # wrap long lines to panel width
             while len(line) > self.panel_width:
                 lines.append(line[: self.panel_width])
                 line = line[self.panel_width :]
             lines.append(line)
+
+        shuttle = self._compute_shuttle(phrase_start_lines)
 
         # pad or trim to panel height
         lines = lines[: self.panel_height]
@@ -156,4 +242,5 @@ class PocketLoom:
             width=self.panel_width,
             height=self.panel_height,
             lines=tuple(lines),
+            shuttle=shuttle,
         )

@@ -228,6 +228,65 @@ choices, you just take a few extra steps to reach deeper branches.
 selection allows the shuttle to serve as both cursor and selection by
 growing one child at a time in either direction. (phase 2)
 
+### yank behavior
+
+yank (`y`, left-shift chord) removes or manipulates content. since
+the chord key is left-shift, yank glyphs are mapped to right-hand
+keys — the mirror of swerve's left-hand WASD layout.
+
+#### null yank: delete
+
+the null glyph (left-shift released alone, `-`) triggers **delete**:
+remove the node at the current shuttle scope. this parallels the null
+glyph pattern across all chord modes:
+
+- enter alone → suggest (`-`)
+- space alone → loop-neem (`-`)
+- left-shift alone → delete (`-`)
+
+**delete at neem scope:**
+```
+state:       he770 [w476]    shuttle at neem scope
+yank-delete: remove w476, shuttle → previous neem:
+             he770|
+```
+
+**delete only neem in phrase (multi-phrase verse):**
+```
+state:       he770 w476      shuttle at neem scope on w476
+             [t] 8µN
+yank-delete: remove t, phrase now empty → remove phrase too,
+             shuttle → previous phrase's last neem:
+             he770 w476|
+```
+
+**delete last content in verse:**
+```
+state:       [he770]         shuttle at neem scope, only neem
+yank-delete: remove he770, leave empty verse scaffold,
+             shuttle stays at empty neem: |
+```
+
+after a delete, the shuttle moves to the **previous sibling** at the
+same scope. if no previous sibling exists, it falls back to the
+previous phrase's last neem. if nothing remains, the verse is left
+with one empty phrase containing one empty neem.
+
+#### scratch buffer (phase 2)
+
+the nine rightmost keys are reserved for scratch buffer actions:
+
+```
+physical:     O   P   [         petals:  0   p   -
+              L   ;   '                  7   *   2
+              ,   .   /                  3   4   ?
+```
+
+planned actions include **cut** (remove + push to scratch), **copy**
+(push to scratch without removing), and **paste** (pop from scratch
+and insert at shuttle). key assignments will be finalized when the
+scratch buffer is designed.
+
 ### cant behavior
 
 the null cant (enter alone, `-`) is reserved for **accepting
@@ -235,4 +294,4 @@ suggestions** from the loom — e.g. autocomplete predictions,
 completions offered by an attached language model.
 
 undo is handled by **swerve-undo** (`#`, Z key) on the time axis.
-deletion is handled by **yank-delete** (`#`, Z key in yank mode).
+deletion is handled by **yank-delete** (`-`, left-shift alone).

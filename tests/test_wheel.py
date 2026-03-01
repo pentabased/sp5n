@@ -67,7 +67,7 @@ def test_spin_multiple_glyphs():
     [
         ("enter", "k", "[{", "-"),
         ("right-shift", "c", "aA", "a"),
-        ("left-shift", "y", "xX", "x"),
+        ("left-shift", "y", "[{", "-"),
         ("space", "7", "[{", "-"),
     ],
 )

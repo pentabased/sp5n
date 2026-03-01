@@ -172,16 +172,35 @@ def _draw_debug(
 def _draw_verse(
     win: "curses.window",
     lines: tuple[str, ...],
+    shuttle: tuple[tuple[int, int, int], ...],
     height: int,
     width: int,
 ) -> None:
-    """draw the verse panel"""
+    """draw the verse panel with shuttle highlight"""
     win.erase()
     for i, line in enumerate(lines[:height]):
         try:
             win.addstr(i, 0, line[:width])
         except curses.error:
             pass
+
+    # apply shuttle highlight (inverse video)
+    for line_num, start_col, end_col in shuttle:
+        if line_num >= height:
+            continue
+        if start_col == end_col:
+            # empty neem — show cursor as inverse space
+            try:
+                win.addstr(line_num, start_col, " ", curses.A_REVERSE)
+            except curses.error:
+                pass
+        else:
+            text = lines[line_num][start_col:end_col]
+            try:
+                win.addstr(line_num, start_col, text, curses.A_REVERSE)
+            except curses.error:
+                pass
+
     win.noutrefresh()
 
 
@@ -214,7 +233,7 @@ def run(stdscr: "curses.window") -> None:
 
     # initial render
     panel = loom.render()
-    _draw_verse(verse_win, panel.lines, verse_height, width)
+    _draw_verse(verse_win, panel.lines, panel.shuttle, verse_height, width)
     _draw_debug(debug_win, chord_indicator, glyph_history, width)
     curses.doupdate()
 
@@ -241,7 +260,9 @@ def run(stdscr: "curses.window") -> None:
                 debug_win.mvwin(verse_height, 0)
                 debug_win.resize(DEBUG_HEIGHT, width)
                 panel = loom.render()
-                _draw_verse(verse_win, panel.lines, verse_height, width)
+                _draw_verse(
+                    verse_win, panel.lines, panel.shuttle, verse_height, width
+                )
                 _draw_debug(
                     debug_win,
                     chord_indicator,
@@ -283,7 +304,13 @@ def run(stdscr: "curses.window") -> None:
 
                     glyph_history += bend.glyph
                     panel = loom.push(bend)
-                    _draw_verse(verse_win, panel.lines, verse_height, width)
+                    _draw_verse(
+                        verse_win,
+                        panel.lines,
+                        panel.shuttle,
+                        verse_height,
+                        width,
+                    )
 
                 _draw_debug(
                     debug_win,

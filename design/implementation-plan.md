@@ -55,47 +55,67 @@ port from v0 with constructor bug fixed (self._seconds_since_epoch vs self._seco
 
 port and clean up from v0 - align terminology with current spec
 
-- `BendKind` - enum: BLOOM / LOOP / YANK / SWERVE / CANT
-- `Bend` - a single input event: kind + petal glyph
+- `Bend` - a frozen dataclass with two `Petal` fields: `kind` + `glyph`
+  (10 bits total, suitable for compact serialization)
+- `BendKind` - StrEnum: BLOOM(`8`) / LOOP(`7`) / YANK(`y`) / SWERVE(`c`) / CANT(`k`)
+- sub-kind enums (StrEnum values are valid Petals, used for validation
+  and pattern matching):
+  - `CantKind` - SUGGEST(`-`) / THUMP(`2`) / QUIT(`Q`)
+  - `SwerveKind` - four axes, nine glyphs (see tape-documents.md)
+  - `YankKind` - DELETE(`-`) for phase 1; scratch buffer actions in phase 2
+  - `LoopKind` - NEEM(`-`) / PHRASE(`p`) / VERSE(`v`)
+- glyph frozensets (`cant_glyphs`, `swerve_glyphs`, etc.) derived from enums
 
 **sp5n.wheel**
 
-port from v0 - input validation logic in `spin()` is clean
+port from v0, redesigned to own key state tracking
 
+- `Key` - literal type for all physical key names
+- `KeyState` - `frozenset[Key]` of currently pressed keys
 - `glyph_key_map` - physical key names → petals
-- `chord_key_map` - chord key names → bend kinds
-- `spin()` - validate key combination and emit a `Bend`
+- `chord_key_map` - chord key names → petal values (not BendKind)
+- `spin(state, key, pressed)` - takes key state + event, returns
+  `(new_state, Bend | None)`. emits bends on falling edges only.
+- `current_chord(state)` - returns the chord petal for display
+- `_evaluate(inputs)` - private; validates key combination and builds Bend
 
 **sp5n.tape**
 
-new - tape document node types + minimal in-process loom stub
+tape document node types + minimal in-process loom stub
 
 node types for phase 1 (just the three needed for a single verse):
 - `Neem` - a sequence of petals evoking a single word
 - `Phrase` - a sequence of neems evoking a thought
 - `Verse` - a sequence of phrases developing a theme
 
-`Panel` - a fixed-size rendered block: width, height, list of strings
+`Panel` - a frozen dataclass: width, height, tuple of strings
 
-`PocketLoom` - accepts bends, maintains a single in-progress verse, emits panels:
+`PocketLoom` - accepts bends, maintains a single in-progress verse,
+emits panels. the shuttle cursor is a `(phrase_idx, neem_idx)` position:
 - bloom bends → append petal to current neem
-- loop + NEEM glyph → start a new neem in the current phrase
-- loop + PHRASE glyph → start a new phrase in the current verse
-- swerve bends → move shuttle position within the verse
-- cant + null glyph (enter alone) → nope: remove the last petal from the current neem
-- other cant bends → reserved for phase 2
+- loop + NEEM → start a new neem in the current phrase
+- loop + PHRASE → start a new phrase in the current verse
+- swerve bends → move shuttle position within the verse (back/forward/
+  grow/shrink; undo/redo and scoop/stretch reserved for phase 2)
+- yank + DELETE → remove node at shuttle scope, shuttle moves to
+  previous sibling (see tape-documents.md for full semantics)
+- cant → suggest reserved for future loom integration
+- cant + QUIT → handled in hexes main loop (exit TUI)
 
-rendering: the loom maps each phrase to a line of rendered text, wrapping neems
-with spaces, and packs lines into a panel sized to the terminal window
+rendering: the loom maps each phrase to a line of rendered text,
+wrapping neems with spaces, and packs lines into a panel sized to
+the terminal window
 
 **sp5n.hexes**
 
-new - curses tui: plays both wheel and display roles
+curses TUI with evdev keyboard input
 
-- capture raw key events and pass to `wheel.spin()`
-- pass bends to `PocketLoom`
-- receive panels from `PocketLoom` and render them to the terminal
-- show a second debug panel with the raw petal stream
+- evdev reader thread is fully stateless — sends `(Key, bool)` tuples
+  on a thread-safe queue
+- main loop owns `KeyState` and calls `spin()` / `current_chord()`
+- passes bends to `PocketLoom`, renders panels to curses
+- debug bar: chord indicator + scrolling glyph history
+- exit via cant-quit (enter+Q) or ctrl-c
 
 ### milestone
 
@@ -103,7 +123,8 @@ new - curses tui: plays both wheel and display roles
 
 1. the 32 glyph keys + 4 chord keys produce bends
 2. the current verse is rendered as phonetic text in a panel
-3. a debug panel shows the raw petal input stream
+3. swerve navigates the shuttle, yank-delete removes content
+4. a debug bar shows chord indicator + raw petal input stream
 
 ## phase 2: local server
 
@@ -126,8 +147,12 @@ of a shared public display with participants each using a handheld wheel
 
 ## porting notes from v0
 
-- `petal.py` → `sp5n.petal` - port as-is, tests pass
-- `wheel.py` → `sp5n.wheel` - port, clean up terminology
-- `bend.py` → `sp5n.bend` - port, align `BendKind` names with current spec
-- `time.py` → `sp5n.time` - port with constructor bug fix
-- `loom.py` → do not port; redesign as `sp5n.tape` with loom logic staying in sp5n for phase 1, moving to 7oom in phase 2
+all ports complete:
+
+- `petal.py` → `sp5n.petal` - ported as-is, tests pass
+- `wheel.py` → `sp5n.wheel` - ported, redesigned with `KeyState` and
+  falling-edge `spin()` signature
+- `bend.py` → `sp5n.bend` - ported, `Bend` now takes two `Petal` values
+  (frozen dataclass), sub-kind enums are StrEnums with Petal values
+- `time.py` → `sp5n.time` - ported with constructor bug fix
+- `loom.py` → not ported; redesigned as `sp5n.tape` (`PocketLoom`)

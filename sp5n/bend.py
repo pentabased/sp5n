@@ -65,13 +65,13 @@ swerve_glyphs: Final[frozenset[Petal]] = frozenset(
 
 
 class YankKind(StrEnum):
-    """scratch stack actions"""
+    """yank actions
 
-    DELETE = "#"
-    CUT = "x"
-    COPY = "c"
-    PASTE = "v"
-    BRACKET = "8"
+    phase 1 implements DELETE only. scratch buffer actions (cut, copy,
+    paste) will use the nine rightmost keys in phase 2.
+    """
+
+    DELETE = "-"  # remove node at shuttle scope (null glyph - shift alone)
 
 
 yank_glyphs: Final[frozenset[Petal]] = frozenset(

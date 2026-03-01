@@ -10,4 +10,5 @@ look back on why things are the way they are
 
 - [implementation plan](implementation-plan.md) - phase 1-3 roadmap and module design
 - [tape documents](tape-documents.md) - document hierarchy, screeds, and shuttle cursor
+- [shuttle visualization](shuttle-visualization.md) - shuttle cursor display in the hexes TUI
 - [pynput input](pynput-input.md) - replacing curses keyboard input with pynput for proper chord detection
