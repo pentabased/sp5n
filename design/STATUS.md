@@ -1,6 +1,6 @@
 # sp5n status
 
-last updated: 2026-02-28 (session 2)
+last updated: 2026-03-01 (session 3)
 
 ## what works
 
@@ -29,23 +29,29 @@ last updated: 2026-02-28 (session 2)
 
 ## what we just did
 
-- designed the agent/token wheel interface (design/agent-wheel.md)
-  - keyboard wheel vs token wheel: about input granularity, not who's using it
-  - token wheel API: position-addressed insert/replace/delete at neem/phrase level
-  - read_screed(address) for selective document tree traversal
-  - multi-author editing panes: authors are peers, yank between panes
-  - suggestions vs authorship: cant-suggest is for tooling, not inter-author
-  - phasing: phase 2 token wheel impl, phase 3 initial corpus
-- worked out pentabased phoneme encoding examples
-  - "hello world" → he770 w476, "thanks for all the fish" → 2a?kc f4 aw7 3µ f5x
-  - identified NG (`?`) as a tricky phoneme to internalize
-  - dialectal variation is welcome (e.g. ah7 vs aw7 for "all")
+- continued agent/token wheel design (design/agent-wheel.md)
+  - read_verse() → read_screed(address) for selective tree traversal
+  - clarified suggestions vs authorship: cant-suggest is for tooling
+    (type checkers, word completion), not inter-author communication
+  - unified bend concept: bends are bends at any scale, keyboard bends
+    are fine-grained (10 bits), token bends are compound (variable length)
+  - phase 3 planning: collaborative pentabased corpus
+- refined document hierarchy (design/tape-documents.md, spec/tape.md)
+  - tapestry as flexible root: links metadata + single root branch at
+    any level (verse through opus)
+  - documents grow by inserting parent levels (append-only, screeds untouched)
+  - banner clarified as a meta loop attachable to any node (tapestry thru verse)
+  - strict branch ordering: opus → canto → fit → verse
 - cross-pollinated spec and design docs
-  - spec/tape.md: added shuttle scope levels and three principles
-  - spec/input.md: added swerve axes, mode sub-kinds, token wheel section,
-    encoding examples, fixed yank/swerve chord key assignments
-  - spec/vision.md: added keyboard-wheel vs token-wheel distinction
-  - design/tape-documents.md: added canto/opus hierarchy and meta loops from spec
+  - spec/tape.md: shuttle scope, three principles, flexible root, banner as meta
+  - spec/input.md: swerve axes, mode sub-kinds, token wheel section,
+    encoding examples, unified bend concept
+  - spec/vision.md: keyboard-wheel vs token-wheel distinction
+  - design/tape-documents.md: full hierarchy with canto/opus/meta loops
+- worked out pentabased phoneme encoding examples
+  - "thanks" → 2ey?kc (Seattle dialect), NG (`?`) as distinct phoneme
+  - encoding examples in both spec/input.md and design/agent-wheel.md
+- phase 1 merged to main, ready for phase 2
 
 ## what's next
 
