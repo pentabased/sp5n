@@ -1,5 +1,5 @@
 """
-hexes: curses tui for sp5n
+hexes: curses tui for charkha
 
 plays both wheel (keyboard input) and display (panel rendering) roles
 
@@ -32,9 +32,9 @@ from typing import Final
 import evdev
 import evdev.ecodes as ec
 
-from sp5n.bend import BendKind, CantKind
-from sp5n.tape import PocketLoom
-from sp5n.wheel import (
+from charkha.bend import BendKind, CantKind
+from charkha.tape import PocketLoom
+from charkha.wheel import (
     Key,
     KeyState,
     SpinError,
@@ -49,7 +49,7 @@ MIN_HEIGHT = 4
 # height of the debug strip at the bottom
 DEBUG_HEIGHT = 1
 
-# --- evdev-to-sp5n key mapping ---
+# --- evdev-to-charkha key mapping ---
 
 _EVDEV_KEY_MAP: Final[dict[int, Key]] = {
     ec.KEY_Q: "qQ",
@@ -144,11 +144,11 @@ def _evdev_reader(
         if event.value == 2:
             continue
 
-        sp5n_key = _EVDEV_KEY_MAP.get(event.code)
-        if sp5n_key is None:
+        charkha_key = _EVDEV_KEY_MAP.get(event.code)
+        if charkha_key is None:
             continue
 
-        key_queue.put((sp5n_key, event.value == 1))
+        key_queue.put((charkha_key, event.value == 1))
 
 
 def _draw_debug(

@@ -24,9 +24,9 @@ a thread-safe queue bridges the pynput listener thread to the curses main loop.
 
 **pyproject.toml** - add `pynput>=1.7.7` to dependencies
 
-**sp5n/hexes.py** - rewrite input handling:
-- remove `_curses_key_to_sp5n()` and `_infer_chord_indicator()`
-- add `_pynput_to_sp5n(key)` to map pynput key objects to sp5n `Key` literals
+**charkha/hexes.py** - rewrite input handling:
+- remove `_curses_key_to_charkha()` and `_infer_chord_indicator()`
+- add `_pynput_to_charkha(key)` to map pynput key objects to charkha `Key` literals
 - add `KeyStateTracker` class that tracks pressed keys, filters OS repeat,
   builds `inputs` dicts for `spin()`, and puts bends on the queue
 - rewrite `run()` to poll the queue from the curses main loop (50ms timeout)
@@ -37,7 +37,7 @@ a thread-safe queue bridges the pynput listener thread to the curses main loop.
 ### threading model
 
 the pynput listener thread should be as thin as possible: just translate
-pynput key objects to sp5n Key literals and put raw press/release edge
+pynput key objects to charkha Key literals and put raw press/release edge
 events on the queue. all mutable state (the pressed-key set, spin() calls,
 loom updates, curses rendering) lives on the main thread.
 
@@ -49,7 +49,7 @@ internally.
 pynput Listener thread              curses main thread (50ms poll)
   on_press / on_release               getch() → only KEY_RESIZE
          |                                  |
-    translate to sp5n Key              drain queue
+    translate to charkha Key           drain queue
          |                            update pressed-key set
     queue.put(                        filter OS repeat
       ("press", key) or               call spin() on release

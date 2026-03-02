@@ -1,4 +1,4 @@
-# sp5n status
+# charkha status
 
 last updated: 2026-03-01 (session 3)
 
@@ -29,12 +29,12 @@ last updated: 2026-03-01 (session 3)
 
 ## what we just did
 
-- continued agent/token wheel design (design/agent-wheel.md)
+- continued splice wheel design (design/splice-wheel.md)
   - read_verse() → read_screed(address) for selective tree traversal
   - clarified suggestions vs authorship: cant-suggest is for tooling
     (type checkers, word completion), not inter-author communication
-  - unified bend concept: bends are bends at any scale, keyboard bends
-    are fine-grained (10 bits), token bends are compound (variable length)
+  - unified bend concept: bends are bends at any scale, shuttle bends
+    are fine-grained (10 bits), splice bends are compound (variable length)
   - phase 3 planning: collaborative pentabased corpus
 - refined document hierarchy (design/tape-documents.md, spec/tape.md)
   - tapestry as flexible root: links metadata + single root branch at
@@ -44,22 +44,22 @@ last updated: 2026-03-01 (session 3)
   - strict branch ordering: opus → canto → fit → verse
 - cross-pollinated spec and design docs
   - spec/tape.md: shuttle scope, three principles, flexible root, banner as meta
-  - spec/input.md: swerve axes, mode sub-kinds, token wheel section,
+  - spec/input.md: swerve axes, mode sub-kinds, splice wheel section,
     encoding examples, unified bend concept
-  - spec/vision.md: keyboard-wheel vs token-wheel distinction
+  - spec/vision.md: shuttle-wheel vs splice-wheel distinction
   - design/tape-documents.md: full hierarchy with canto/opus/meta loops
 - worked out pentabased phoneme encoding examples
   - "thanks" → 2ey?kc (Seattle dialect), NG (`?`) as distinct phoneme
-  - encoding examples in both spec/input.md and design/agent-wheel.md
+  - encoding examples in both spec/input.md and design/splice-wheel.md
 - phase 1 merged to main, ready for phase 2
 
 ## what's next
 
-- **phase 2: 7oom extraction** — extract loom and plaza into a separate
-  service, connect sp5n as a thin client
+- **phase 2: tiraz extraction** — extract loom and plaza into a separate
+  service, connect charkha as a thin client
 - **time axis implementation** — swerve undo/redo keys mapped but edit
   history tree not yet built in the loom (better over proper screed tree)
-- **token wheel implementation** — position-addressed API for agents
+- **splice wheel implementation** — position-addressed API for agents
 - **phoneme reference** — overlay or cheatsheet for glyph-to-phoneme mapping
 - **phase 2 yank** — scratch buffer for copy/cut/paste operations
 - **phase 3: initial corpus** — collaborative pentabased document corpus

@@ -1,12 +1,12 @@
 """
-unit tests for sp5n.time
+unit tests for charkha.time
 """
 
 import datetime
 
 import pytest
 
-from sp5n.time import Time
+from charkha.time import Time
 
 
 def test_round_trip_int():
@@ -75,7 +75,7 @@ def test_invalid_int_too_small():
 
 def test_invalid_stamp_high_bit():
     # first petal with high bit set should raise
-    from sp5n.petal import petal_order
+    from charkha.petal import petal_order
 
     bad_first = petal_order[0x10]  # value 16, high bit set
     stamp = (bad_first,) + ("-",) * 7

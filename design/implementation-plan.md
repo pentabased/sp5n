@@ -1,4 +1,4 @@
-# sp5n implementation plan
+# charkha implementation plan
 
 ## north star for phase 1
 
@@ -34,7 +34,7 @@ everything runs in a single python process with no networking
 
 ### modules
 
-**sp5n.petal**
+**charkha.petal**
 
 port from v0 - solid and well-tested, minor cleanup only
 
@@ -44,14 +44,14 @@ port from v0 - solid and well-tested, minor cleanup only
 - `petal_value` - dict mapping glyph → 0-31
 - `petal_order` - tuple mapping 0-31 → glyph
 
-**sp5n.time**
+**charkha.time**
 
 port from v0 with constructor bug fixed (self._seconds_since_epoch vs self._seconds)
 
 - `Time` - 39-bit signed integer (seconds since unix epoch), converts to/from 8-petal stamp
 - `Stamp` - type alias for tuple of 8 petals
 
-**sp5n.bend**
+**charkha.bend**
 
 port and clean up from v0 - align terminology with current spec
 
@@ -66,7 +66,7 @@ port and clean up from v0 - align terminology with current spec
   - `LoopKind` - NEEM(`-`) / PHRASE(`p`) / VERSE(`v`)
 - glyph frozensets (`cant_glyphs`, `swerve_glyphs`, etc.) derived from enums
 
-**sp5n.wheel**
+**charkha.wheel**
 
 port from v0, redesigned to own key state tracking
 
@@ -79,7 +79,7 @@ port from v0, redesigned to own key state tracking
 - `current_chord(state)` - returns the chord petal for display
 - `_evaluate(inputs)` - private; validates key combination and builds Bend
 
-**sp5n.tape**
+**charkha.tape**
 
 tape document node types + minimal in-process loom stub
 
@@ -106,7 +106,7 @@ rendering: the loom maps each phrase to a line of rendered text,
 wrapping neems with spaces, and packs lines into a panel sized to
 the terminal window
 
-**sp5n.hexes**
+**charkha.hexes**
 
 curses TUI with evdev keyboard input
 
@@ -128,31 +128,31 @@ curses TUI with evdev keyboard input
 
 ## phase 2: local server
 
-extract loom and plaza into 7oom, connect sp5n via a simple local protocol
+extract loom and plaza into tiraz, connect charkha via a simple local protocol
 
-- 7oom runs as a local process (plain http or unix socket)
-- sp5n.wheel streams bends to 7oom
-- 7oom maintains document state, renders panels, streams them back
-- sp5n.hexes displays incoming panels
+- tiraz runs as a local process (plain http or unix socket)
+- charkha.wheel streams bends to tiraz
+- tiraz maintains document state, renders panels, streams them back
+- charkha.hexes displays incoming panels
 
-sp5n loses `PocketLoom` and gains a thin client that speaks the 7oom protocol
+charkha loses `PocketLoom` and gains a thin client that speaks the tiraz protocol
 
 ## phase 3: webtransport
 
-migrate sp5n ↔ 7oom connection to http3 webtransport when 7oom moves to its own repo
+migrate charkha ↔ tiraz connection to http3 webtransport
 
 this is the point where multiple wheels and multiple displays can connect to a single
-7oom instance and the collaborative loom model becomes real - including the use case
+tiraz instance and the collaborative loom model becomes real - including the use case
 of a shared public display with participants each using a handheld wheel
 
 ## porting notes from v0
 
 all ports complete:
 
-- `petal.py` → `sp5n.petal` - ported as-is, tests pass
-- `wheel.py` → `sp5n.wheel` - ported, redesigned with `KeyState` and
+- `petal.py` → `charkha.petal` - ported as-is, tests pass
+- `wheel.py` → `charkha.wheel` - ported, redesigned with `KeyState` and
   falling-edge `spin()` signature
-- `bend.py` → `sp5n.bend` - ported, `Bend` now takes two `Petal` values
+- `bend.py` → `charkha.bend` - ported, `Bend` now takes two `Petal` values
   (frozen dataclass), sub-kind enums are StrEnums with Petal values
-- `time.py` → `sp5n.time` - ported with constructor bug fix
-- `loom.py` → not ported; redesigned as `sp5n.tape` (`PocketLoom`)
+- `time.py` → `charkha.time` - ported with constructor bug fix
+- `loom.py` → not ported; redesigned as `charkha.tape` (`PocketLoom`)

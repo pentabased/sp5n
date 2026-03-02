@@ -1,13 +1,13 @@
 [project]
-name = "sp5n"
+name = "charkha"
 version = "0.1.0"
-description = "a tool for streaming pentabased key input"
+description = "a shuttle wheel for collaborative tapestry authoring"
 requires-python = ">=3.13"
 authors = [{ name = "philetus", email = "philetus@gmail.com" }]
 dependencies = ["evdev>=1.9"]
 
 [project.urls]
-Source = "https://github.com/pentabased/sp5n"
+Source = "https://github.com/pentabased/charkha"
 
 [project.optional-dependencies]
 dev = ["pytest>=9.0.2", "ruff>=0.15.2", "ty>=0.0.18"]
@@ -17,7 +17,7 @@ requires = ["setuptools", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
-packages = ["sp5n"]
+packages = ["charkha"]
 
 [tool.ty.environment]
 python = ".venv"

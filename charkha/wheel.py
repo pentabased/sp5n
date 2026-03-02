@@ -8,7 +8,7 @@ updated key state and optionally a bend (emitted on falling edges)
 from enum import Enum
 from typing import Final, Literal
 
-from sp5n.bend import (
+from charkha.bend import (
     Bend,
     BendKind,
     cant_glyphs,
@@ -16,7 +16,7 @@ from sp5n.bend import (
     swerve_glyphs,
     yank_glyphs,
 )
-from sp5n.petal import Petal
+from charkha.petal import Petal
 
 type Key = Literal[
     "qQ",

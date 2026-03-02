@@ -27,11 +27,11 @@ thread puts events on a queue, the curses main loop drains it.
 
 **pyproject.toml** - replace `pynput>=1.7.7` with `evdev>=1.9`
 
-**sp5n/hexes.py** - rewrite input handling:
-- remove all pynput imports, `_ensure_maps()`, `_pynput_to_sp5n()`,
+**charkha/hexes.py** - rewrite input handling:
+- remove all pynput imports, `_ensure_maps()`, `_pynput_to_charkha()`,
   and the lazy `_special_map`/`_char_map` globals
 - add `_EVDEV_KEY_MAP` dict mapping `evdev.ecodes.KEY_*` constants to
-  sp5n `Key` literals (KEY_Q → "qQ", KEY_SPACE → "space", etc.)
+  charkha `Key` literals (KEY_Q → "qQ", KEY_SPACE → "space", etc.)
 - add `_find_keyboard()` function that scans `/dev/input/` for the first
   device with a full alpha key range (KEY_Q..KEY_P at minimum)
 - rewrite `KeyStateTracker` to accept evdev `InputEvent` objects:

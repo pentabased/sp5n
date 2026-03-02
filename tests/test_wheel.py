@@ -1,11 +1,11 @@
 """
-unit tests for sp5n.wheel
+unit tests for charkha.wheel
 """
 
 import pytest
 
-from sp5n.bend import Bend
-from sp5n.wheel import SpinError, current_chord, spin
+from charkha.bend import Bend
+from charkha.wheel import SpinError, current_chord, spin
 
 
 # --- spin: press events (rising edge) ---
@@ -99,7 +99,7 @@ def test_uU_maps_to_ah():
 
 
 def test_all_glyph_keys_covered():
-    from sp5n.wheel import glyph_key_map
+    from charkha.wheel import glyph_key_map
 
     for key, petal in glyph_key_map.items():
         state = frozenset({key})

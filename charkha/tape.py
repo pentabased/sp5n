@@ -16,8 +16,8 @@ each change
 from dataclasses import dataclass, field
 from enum import StrEnum
 
-from sp5n.bend import Bend, BendKind, LoopKind
-from sp5n.petal import Petal
+from charkha.bend import Bend, BendKind, LoopKind
+from charkha.petal import Petal
 
 # --- node types ---
 
@@ -209,7 +209,7 @@ class PocketLoom:
 
     def _swerve(self, glyph: Petal) -> None:
         """move or rescope the shuttle"""
-        from sp5n.bend import SwerveKind
+        from charkha.bend import SwerveKind
 
         match glyph:
             case SwerveKind.BACK:
@@ -292,7 +292,7 @@ class PocketLoom:
 
     def _yank(self, glyph: Petal) -> None:
         """remove or manipulate content at the shuttle"""
-        from sp5n.bend import YankKind
+        from charkha.bend import YankKind
 
         match glyph:
             case YankKind.DELETE:

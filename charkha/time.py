@@ -9,7 +9,7 @@ import datetime
 import time
 from typing import Self
 
-from sp5n.petal import Petal, petal_order, petal_value
+from charkha.petal import Petal, petal_order, petal_value
 
 type Stamp = tuple[Petal, Petal, Petal, Petal, Petal, Petal, Petal, Petal]
 

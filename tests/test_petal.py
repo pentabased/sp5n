@@ -1,10 +1,10 @@
 """
-unit tests for sp5n.petal
+unit tests for charkha.petal
 """
 
 import pytest
 
-from sp5n.petal import Bloom, Word
+from charkha.petal import Bloom, Word
 
 
 def test_word_from_bloom():

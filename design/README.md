@@ -1,6 +1,6 @@
 # design notes
 
-informal design records for sp5n, loosely following the
+informal design records for charkha, loosely following the
 context / decision / consequences pattern
 
 these capture the reasoning behind architectural choices so we can
@@ -12,5 +12,5 @@ look back on why things are the way they are
 - [tape documents](tape-documents.md) - document hierarchy, screeds, and shuttle cursor
 - [shuttle visualization](shuttle-visualization.md) - shuttle cursor display in the hexes TUI
 - [shuttle scope](shuttle-scope.md) - scope tracking for the shuttle cursor (petal/neem/phrase/verse)
-- [agent wheel](agent-wheel.md) - agent-facing wheel interface for AI interaction with pentabased documents
+- [splice wheel](splice-wheel.md) - splice wheel interface for position-addressed document operations
 - [pynput input](pynput-input.md) - replacing curses keyboard input with pynput for proper chord detection

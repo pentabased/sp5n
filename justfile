@@ -9,9 +9,9 @@ init:
     python3 -m venv .venv
     {{venv_bin}}/pip install -e '.[dev]'
 
-# run sp5n tui
+# run charkha tui
 run:
-    {{venv_bin}}/python3 -m sp5n.hexes
+    {{venv_bin}}/python3 -m charkha.hexes
 
 # start a python repl inside the virtual environment
 repl:
@@ -24,7 +24,7 @@ format:
 
 # run static type checking
 typecheck:
-    {{venv_bin}}/ty check sp5n
+    {{venv_bin}}/ty check charkha
 
 # run unit tests
 test:
@@ -38,8 +38,8 @@ validate: && typecheck test
 # remove venv dir and other build artifacts
 clean:
     @rm -rf .venv
-    @rm -rf sp5n.egg-info
+    @rm -rf charkha.egg-info
     @rm -rf .pytest_cache
     @rm -rf .ruff_cache
-    @rm -rf sp5n/__pycache__
+    @rm -rf charkha/__pycache__
     @rm -rf tests/__pycache__

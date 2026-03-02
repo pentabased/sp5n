@@ -1,8 +1,8 @@
 """
-unit tests for sp5n.bend
+unit tests for charkha.bend
 """
 
-from sp5n.bend import (
+from charkha.bend import (
     Bend,
     BendKind,
     CantKind,

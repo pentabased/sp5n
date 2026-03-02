@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import Final
 
-from sp5n.petal import Petal
+from charkha.petal import Petal
 
 
 class BendKind(StrEnum):

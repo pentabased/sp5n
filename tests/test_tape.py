@@ -1,10 +1,10 @@
 """
-unit tests for sp5n.tape
+unit tests for charkha.tape
 """
 
-from sp5n.bend import Bend
-from sp5n.petal import Petal
-from sp5n.tape import (
+from charkha.bend import Bend
+from charkha.petal import Petal
+from charkha.tape import (
     Panel,
     PocketLoom,
     ShuttleScope,

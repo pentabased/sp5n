@@ -1,16 +1,16 @@
-# sp5n
+# charkha
 
-a keyboard input and display tool for collaborative tapestry authoring
+a shuttle wheel for collaborative tapestry authoring
 
 ## what is this?
 
 a loom is a collaborative writing environment where several authors - human and AI alike - each spin an input thread on a wheel and the threads are woven together into a shared tapestry
 
-sp5n is a keyboard wheel for the loom - a terminal tool that maps keyboard input to a pentabased thread and streams it to a loom server, while also displaying the rendered tapestry and the input streams of other participants
+charkha is a shuttle wheel for the loom - a terminal tool that maps keyboard input to a pentabased thread and streams it to a loom server, while also displaying the rendered tapestry and the input streams of other participants
 
 tapestries are narrative text documents encoded in pentabased, a minimal document scheme that combines a 32-glyph character encoding with a structured document format into a single compact representation
 
-the companion server for local development is [7oom](7oom/README.md), which bundles a plaza document store and a loom together into a single containerized service
+the companion server for local development is [tiraz](https://github.com/pentabased/tiraz), which bundles a plaza document store and a loom together into a single containerized service
 
 ## motivation
 
@@ -39,9 +39,9 @@ the system has three general components:
 
 the loom owns all document logic and rendering - wheels are input-only and displays are output-only, so either can be swapped out independently (a phone as a wheel, a big shared screen as a display)
 
-sp5n is a terminal client that plays both the wheel and display roles
+charkha is a terminal client that plays both the wheel and display roles
 
-7oom is a local server that plays both the plaza and loom roles
+tiraz is a local server that plays both the plaza and loom roles
 
 general terms for the data flowing through the system:
 
@@ -56,8 +56,8 @@ general terms for the data flowing through the system:
 **prerequisites:** python 3.13+, [just](https://github.com/casey/just)
 
 ```sh
-git clone https://github.com/pentabased/sp5n
-cd sp5n
+git clone https://github.com/pentabased/charkha
+cd charkha
 just init
 ```
 
@@ -76,10 +76,10 @@ just validate # run all checks
 
 early prototype - the pentabased encoding, tapestry document scheme, and input model are specified but not yet fully implemented
 
-see [sp5n/README.md](sp5n/README.md) for the current implementation plan
+see [design/](design/README.md) for design notes and implementation plan
 
 ## docs
 
-- [spec/](spec/README.md) - pentabased encoding and document scheme
-- [7oom/](7oom/README.md) - minimal plaza and loom server for local development
-- [sp5n/](sp5n/README.md) - implementation plan for this package
+- [spec](https://github.com/pentabased/spec) - pentabased encoding and document scheme
+- [tiraz](https://github.com/pentabased/tiraz) - minimal plaza and loom server for local development
+- [design/](design/README.md) - design notes for this package
