@@ -117,6 +117,52 @@ petal_value: Final[dict[Petal, int]] = {
 }
 
 
+# glyph-as-count: value 0 means 32, values 1-31 map to themselves
+# this gives counts in the range 1-32
+def count_value(petal: Petal) -> int:
+    """interpret a petal glyph as a count (1-32), where `-` means 32"""
+    v = petal_value[petal]
+    return 32 if v == 0 else v
+
+
+def count_glyph(n: int) -> Petal:
+    """encode a count (1-32) as a petal glyph, where 32 becomes `-`"""
+    if not 1 <= n <= 32:
+        raise ValueError(f"count {n} out of range 1-32")
+    return petal_order[n % 32]
+
+
+# counted integer: count glyph + N petals encoding a non-negative integer
+def int_petals(n: int) -> int:
+    """how many petals are needed to encode a non-negative integer"""
+    if n < 0:
+        raise ValueError(f"counted integer must be non-negative, got {n}")
+    if n == 0:
+        return 1
+    return (n.bit_length() + 4) // 5
+
+
+def encode_int(n: int) -> list[Petal]:
+    """encode a non-negative integer as count glyph + value petals"""
+    length = int_petals(n)
+    if length > 32:
+        raise ValueError(f"integer {n} too large for counted encoding")
+    result: list[Petal] = [count_glyph(length)]
+    for i in range(length - 1, -1, -1):
+        result.append(petal_order[(n >> (i * 5)) & 0x1F])
+    return result
+
+
+def decode_int(glyphs: Sequence[Petal], pos: int = 0) -> tuple[int, int]:
+    """decode a counted integer, returns (value, new_position)"""
+    length = count_value(glyphs[pos])
+    pos += 1
+    value = 0
+    for i in range(length):
+        value = (value << 5) | petal_value[glyphs[pos + i]]
+    return value, pos + length
+
+
 class Bloom:
     """a sequence of 1-32 petals with bidirectional int conversion"""
 

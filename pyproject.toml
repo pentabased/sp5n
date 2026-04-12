@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "a shuttle wheel for collaborative tapestry authoring"
 requires-python = ">=3.13"
 authors = [{ name = "philetus", email = "philetus@gmail.com" }]
-dependencies = ["evdev>=1.9"]
+dependencies = ["evdev>=1.9", "pywebtransport>=0.16"]
 
 [project.urls]
 Source = "https://github.com/pentabased/charkha"
