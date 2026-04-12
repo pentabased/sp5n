@@ -19,7 +19,6 @@ from charkha.petal import (
     petal_value,
 )
 
-
 # --- shuttle scope (matches tiraz.plaza.ShuttleScope) ---
 
 

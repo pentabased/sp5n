@@ -53,20 +53,47 @@ last updated: 2026-03-01 (session 3)
   - encoding examples in both spec/input.md and design/splice-wheel.md
 - phase 1 merged to main, ready for phase 2
 
-## what's next
+## phase 2: thin client (2026-04-11)
 
-- **phase 2: tiraz extraction** — extract loom and plaza into a separate
-  service, connect charkha as a thin client
-- **time axis implementation** — swerve undo/redo keys mapped but edit
-  history tree not yet built in the loom (better over proper screed tree)
-- **splice wheel implementation** — position-addressed API for agents
-- **phoneme reference** — overlay or cheatsheet for glyph-to-phoneme mapping
-- **phase 2 yank** — scratch buffer for copy/cut/paste operations
-- **phase 3: initial corpus** — collaborative pentabased document corpus
+charkha is now a thin client connecting to tiraz over WebTransport
+
+### what changed
+
+- **hexes.py refactored to async** — evdev uses async_read_loop,
+  main loop is asyncio-based, curses drain handles terminal input
+  and resize
+- **wire.py added** — petal-native wire protocol: encode bends as
+  2-byte datagrams, decode display glyph streams from tiraz
+- **petal.py extended** — added count_value, count_glyph, encode_int,
+  decode_int for counted integer encoding (independent implementation,
+  same schema as tiraz)
+- **PocketLoom no longer used** — document state lives in tiraz,
+  charkha is purely wheel + display
+- **pywebtransport dependency added**
+
+### what works
+
+- connect to tiraz at localhost:4433/wheel
+- type petal glyphs, see rendered verse with shuttle cursor
+- space for new neem, space+p for new phrase
+- swerve navigation (right-shift + WASD)
+- yank delete (left-shift alone)
+- enter+Q to quit
+- terminal resize handling
+- tab switching without losing state
+
+### what's next
+
+- **time axis** — undo/redo via swerve keys (needs skein tree
+  walking in tiraz loom)
+- **submit verse** — loop-verse to submit and start a new verse
+  in the chat stream
+- **phoneme reference** — overlay or cheatsheet for glyph mapping
+- **scratch buffer** — phase 2 yank with scoop/paste
 
 ## open questions
 
-- scratch buffer design for phase 2 yank — how should scoop/paste
-  interact with the shuttle scope?
+- scratch buffer design — how should scoop/paste interact with
+  shuttle scope?
 - encoding conventions for edge cases: unstressed vowel reduction,
   geminate consonants, borrowed words, proper nouns

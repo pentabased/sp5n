@@ -30,7 +30,6 @@ from typing import Final
 
 import evdev
 import evdev.ecodes as ec
-
 from pywebtransport import (
     ClientConfig,
     WebTransportClient,
@@ -45,7 +44,7 @@ from charkha.wheel import (
     current_chord,
     spin,
 )
-from charkha.wire import Display, encode_bend, decode_display
+from charkha.wire import Display, decode_display, encode_bend
 
 _logger = logging.getLogger(__name__)
 
@@ -248,6 +247,8 @@ async def run_async(stdscr: "curses.window") -> None:
     curses.curs_set(0)
     curses.start_color()
     curses.init_pair(1, curses.COLOR_BLACK, curses.COLOR_WHITE)
+    stdscr.timeout(0)  # non-blocking getch to drain terminal input
+    curses.noecho()  # prevent terminal echo of keystrokes
 
     height, width = stdscr.getmaxyx()
     if height < MIN_HEIGHT or width < MIN_WIDTH:
@@ -262,10 +263,12 @@ async def run_async(stdscr: "curses.window") -> None:
     # connect to tiraz
     config = ClientConfig(verify_mode=ssl.CERT_NONE)
     client = WebTransportClient(config=config)
+    await client.__aenter__()
 
     try:
         session = await client.connect(url="https://localhost:4433/wheel")
     except Exception as e:
+        await client.__aexit__(None, None, None)
         stdscr.addstr(0, 0, f"failed to connect to tiraz: {e}"[:width])
         stdscr.getch()
         return
@@ -283,31 +286,42 @@ async def run_async(stdscr: "curses.window") -> None:
     chord_indicator = "8"
     glyph_history = ""
     key_state: KeyState = frozenset()
-    current_display: Display | None = None
 
     _draw_debug(debug_win, chord_indicator, glyph_history, width)
     curses.doupdate()
 
+    # persistent tasks — only re-created when they complete
+    key_task: asyncio.Task[tuple[Key, bool]] = asyncio.create_task(
+        key_queue.get()
+    )
+    disp_task: asyncio.Task[Display] = asyncio.create_task(display_queue.get())
+
+    last_display: Display | None = None
+
     try:
         while not session.is_closed:
-            # wait for either a key event or a display update
             done, _pending = await asyncio.wait(
-                [
-                    asyncio.create_task(key_queue.get()),
-                    asyncio.create_task(display_queue.get()),
-                ],
+                {key_task, disp_task},
                 timeout=0.1,
                 return_when=asyncio.FIRST_COMPLETED,
             )
 
-            for task in done:
-                result = task.result()
-
-                if isinstance(result, Display):
-                    current_display = result
-                    _draw_frames(
-                        verse_win, current_display, verse_height, width
-                    )
+            # drain curses input to prevent terminal buffering
+            # and handle resize events
+            while True:
+                ch = stdscr.getch()
+                if ch == -1:
+                    break
+                if ch == curses.KEY_RESIZE:
+                    height, width = stdscr.getmaxyx()
+                    verse_height = height - DEBUG_HEIGHT
+                    verse_win.resize(verse_height, width)
+                    debug_win.mvwin(verse_height, 0)
+                    debug_win.resize(DEBUG_HEIGHT, width)
+                    if last_display is not None:
+                        _draw_frames(
+                            verse_win, last_display, verse_height, width
+                        )
                     _draw_debug(
                         debug_win,
                         chord_indicator,
@@ -316,8 +330,21 @@ async def run_async(stdscr: "curses.window") -> None:
                     )
                     curses.doupdate()
 
-                elif isinstance(result, tuple):
-                    key, pressed = result
+            for task in done:
+                if task is disp_task:
+                    last_display = disp_task.result()
+                    _draw_frames(verse_win, last_display, verse_height, width)
+                    _draw_debug(
+                        debug_win,
+                        chord_indicator,
+                        glyph_history,
+                        width,
+                    )
+                    curses.doupdate()
+                    disp_task = asyncio.create_task(display_queue.get())
+
+                elif task is key_task:
+                    key, pressed = key_task.result()
 
                     try:
                         key_state, bend = spin(key_state, key, pressed)
@@ -331,24 +358,21 @@ async def run_async(stdscr: "curses.window") -> None:
                             width,
                         )
                         curses.doupdate()
+                        key_task = asyncio.create_task(key_queue.get())
                         continue
 
                     chord_indicator = current_chord(key_state)
 
                     if bend is not None:
-                        # cant-quit: exit
                         if (
                             bend.kind == BendKind.CANT
                             and bend.glyph == CantKind.QUIT
                         ):
-                            # send quit to tiraz
-                            session.send_datagram(data=encode_bend(bend))
+                            await session.send_datagram(data=encode_bend(bend))
                             return
 
                         glyph_history += bend.glyph
-
-                        # send bend to tiraz
-                        session.send_datagram(data=encode_bend(bend))
+                        await session.send_datagram(data=encode_bend(bend))
 
                     _draw_debug(
                         debug_win,
@@ -357,6 +381,7 @@ async def run_async(stdscr: "curses.window") -> None:
                         width,
                     )
                     curses.doupdate()
+                    key_task = asyncio.create_task(key_queue.get())
 
     except KeyboardInterrupt:
         pass
@@ -365,7 +390,7 @@ async def run_async(stdscr: "curses.window") -> None:
         display_task.cancel()
         if not session.is_closed:
             await session.close()
-        await client.close()
+        await client.__aexit__(None, None, None)
 
 
 def run(stdscr: "curses.window") -> None:
